@@ -203,6 +203,12 @@ static CGameMsg gs_GameMsgList[NUM_GAMEMSGS] = {
 	{/*GAMEMSG_GAME_PAUSED*/ DO_SPECIAL, PARA_I, ""},	// special - add player name
 };
 
+bool IsRace(const CServerInfo *pInfo)
+{
+	return str_find_nocase(pInfo->m_aGameType, "race")
+		|| str_find_nocase(pInfo->m_aGameType, "fastcap");
+}
+
 void CGameClient::OnConsoleInit()
 {
 	m_pEngine = Kernel()->RequestInterface<IEngine>();
