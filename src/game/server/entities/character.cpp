@@ -552,6 +552,7 @@ void CCharacter::Tick()
 		else if(m_Armor < 10)
 			m_Armor++;
 	}
+
 	// handle leaving gamelayer
 	if(GameLayerClipped(m_Pos))
 
