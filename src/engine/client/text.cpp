@@ -519,7 +519,7 @@ public:
 		SetCursor(&Cursor, 0, 0, Size, 0);
 		Cursor.m_LineWidth = LineWidth;
 		TextEx(&Cursor, pText, StrLength);
-		return Cursor.m_X;
+		return Cursor.m_LineCount > 1 ? LineWidth : Cursor.m_X;
 	}
 
 	virtual int TextLineCount(void *pFontSetV, float Size, const char *pText, float LineWidth)
