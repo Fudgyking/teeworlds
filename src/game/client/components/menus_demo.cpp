@@ -303,6 +303,9 @@ void CMenus::DemolistPopulate()
 		m_DemolistStorageType = IStorage::TYPE_ALL;
 	Storage()->ListDirectory(m_DemolistStorageType, m_aCurrentDemoFolder, DemolistFetchCallback, this);
 	m_lDemos.sort_range();
+	m_DemolistLoadingIndex = 0;
+	m_TotalDemosLoaded = 0; 
+	m_AllDemosLoaded = false;
 }
 
 void CMenus::DemolistOnUpdate(bool Reset)
@@ -312,24 +315,16 @@ void CMenus::DemolistOnUpdate(bool Reset)
 	m_DemolistSelectedIsDir = m_DemolistSelectedIndex < 0 ? false : m_lDemos[m_DemolistSelectedIndex].m_IsDir;
 }
 
-inline int DemoGetMarkerCount(CDemoHeader Demo)
-{
-	int DemoMarkerCount = ((Demo.m_aNumTimelineMarkers[0]<<24)&0xFF000000) |
-			((Demo.m_aNumTimelineMarkers[1]<<16)&0xFF0000) |
-			((Demo.m_aNumTimelineMarkers[2]<<8)&0xFF00) |
-			(Demo.m_aNumTimelineMarkers[3]&0xFF);
-	return DemoMarkerCount;
-}
-
 void CMenus::RenderDemoList(CUIRect MainView)
 {
-	CUIRect BottomView;
-	MainView.HSplitTop(20.0f, 0, &MainView);
+	CUIRect BottomView, Loading, DemoSidebarButton;
+	MainView.HSplitTop(20.0f, &Loading, &MainView);
 
 	// back button
 	RenderBackButton(MainView);
 
 	// cut view
+	MainView.VSplitRight(20.0f, &MainView, &DemoSidebarButton);
 	MainView.HSplitBottom(80.0f, &MainView, &BottomView);
 	RenderTools()->DrawUIRect(&MainView, vec4(0.0f, 0.0f, 0.0f, g_Config.m_ClMenuAlpha/100.0f), CUI::CORNER_ALL, 5.0f);
 	BottomView.HSplitTop(20.f, 0, &BottomView);
@@ -354,15 +349,53 @@ void CMenus::RenderDemoList(CUIRect MainView)
 		{
 			if(!Item->m_InfosLoaded)
 			{
-				char aBuffer[512];
+				char aBuffer[256+128];
 				str_format(aBuffer, sizeof(aBuffer), "%s/%s", m_aCurrentDemoFolder, Item->m_aFilename);
 				Item->m_Valid = DemoPlayer()->GetDemoInfo(Storage(), aBuffer, Item->m_StorageType, &Item->m_Info);
 				Item->m_InfosLoaded = true;
+				m_TotalDemosLoaded++;
 			}
 			if(!Item->m_Valid)
 				str_copy(aFooterLabel, Localize("Invalid Demo"), sizeof(aFooterLabel));
 			else
 				str_copy(aFooterLabel, Localize("Demo details"), sizeof(aFooterLabel));
+		}
+	}
+
+	if(m_DemoSidebarActive && !m_AllDemosLoaded)
+	{
+		for(; m_TotalDemosLoaded < m_lDemos.size(); m_DemolistLoadingIndex = (m_DemolistLoadingIndex + 1)%m_lDemos.size())
+		{
+			CDemoItem *Item = &m_lDemos[m_DemolistLoadingIndex];
+			if(!Item->m_InfosLoaded)
+			{
+				char aBuffer[256+128];
+				str_format(aBuffer, sizeof(aBuffer), "%s/%s", m_aCurrentDemoFolder, Item->m_aFilename);
+				Item->m_Valid = DemoPlayer()->GetDemoInfo(Storage(), aBuffer, Item->m_StorageType, &Item->m_Info);
+				Item->m_InfosLoaded = true;
+				m_TotalDemosLoaded++;
+				break;
+			}
+		}
+
+		if(m_TotalDemosLoaded < m_lDemos.size())
+		{
+			UI()->DoLabel(&Loading, "Loading demos :", 20.0f*ms_FontmodHeight, CUI::ALIGN_LEFT);
+			Loading.VSplitLeft(150.0f, 0, &Loading);
+			CUIRect DemoProgress;
+			Loading.VSplitRight(150.0f, &Loading, &DemoProgress);
+			Loading.HMargin(4.0f, &Loading);
+			RenderTools()->DrawUIRect(&Loading, vec4(1.0f, 1.0f, 1.0f, 0.25f), CUI::CORNER_ALL, 5.0f);
+			Loading.w = max(10.0f, (Loading.w*m_TotalDemosLoaded)/m_lDemos.size());
+			RenderTools()->DrawUIRect(&Loading, vec4(1.0f, 1.0f, 1.0f, 0.5f), CUI::CORNER_ALL, 5.0f);
+			char aBuf[16];
+			str_format(aBuf, sizeof(aBuf), "%d/%d", m_TotalDemosLoaded, m_lDemos.size());
+			UI()->DoLabel(&DemoProgress, aBuf, 20.0f*ms_FontmodHeight, CUI::ALIGN_CENTER);
+		}
+		else
+		{
+			m_AllDemosLoaded = true;
+			m_lDemos.sort_range();
 		}
 	}
 
@@ -373,11 +406,56 @@ void CMenus::RenderDemoList(CUIRect MainView)
 	const float HMargin = 5.0f;
 	const float BackgroundHeight = s_DemoDetailsActive ? (float)(NumOptions+1)*ButtonHeight+(float)NumOptions*ButtonSpacing : ButtonHeight;
 
-	CUIRect ListBox, Button, FileIcon;
+	CUIRect ListBox, Button, FileIcon, SortBy;
 	MainView.HSplitTop(MainView.h - BackgroundHeight - 2 * HMargin, &ListBox, &MainView);
 
 	static CListBoxState s_ListBoxState;
-	UiDoListboxHeader(&s_ListBoxState, &ListBox, Localize("Recorded"), 20.0f, 2.0f);
+	UiDoListboxHeader(&s_ListBoxState, &ListBox, m_DemoSidebarActive ? "" : Localize("Recorded"), 20.0f, 2.0f);
+	ListBox.HSplitTop(18.0f, &SortBy, &ListBox);
+
+	DemoSidebarButton.y = ListBox.y;
+	DemoSidebarButton.h = ListBox.h;
+	DemoSidebarButton.HMargin(ListBox.h/4, &DemoSidebarButton);
+	static CButtonContainer s_DemoSidebarButton;
+	if(DoButton_SpriteID(&s_DemoSidebarButton, IMAGE_ARROWICONS, m_DemoSidebarActive?SPRITE_ARROW_RIGHT_A:SPRITE_ARROW_LEFT_A, false, &DemoSidebarButton, CUI::CORNER_R, 5.0f, true))
+		m_DemoSidebarActive ^= 1;
+
+	SortBy.VSplitLeft(SortBy.h + 5.0f, 0, &SortBy);
+	SortBy.VSplitRight(20.0f, &SortBy, 0);
+
+	static CMenus::CDemoColumn s_aDemoCols[] = {
+		{COL_DEMOS_DEMONAME, SORT_DEMONAME, Localize("Demo name"), SortBy.w/12*8, {0}},
+		{COL_DEMOS_MAPNAME, SORT_MAPNAME, Localize("Map name"), SortBy.w/4, {0}},
+		{COL_DEMOS_LENGTH, SORT_LENGTH, Localize("Length"), SortBy.w/12, {0}},
+	};
+
+	if(m_DemoSidebarActive)
+	{
+		// do layout
+		for(int i = 0; i < NUM_DEMOS_COLS; i++)
+			SortBy.VSplitLeft(s_aDemoCols[i].m_Width, &s_aDemoCols[i].m_Rect, &SortBy);
+
+		for(int i = 0; i < NUM_DEMOS_COLS; i++)
+		{
+			char aBuf[32];
+			str_copy(aBuf, s_aDemoCols[i].m_Caption, sizeof(aBuf));
+			if(g_Config.m_DemoSort == s_aDemoCols[i].m_Sort)
+				str_append(aBuf, g_Config.m_DemoSortOrder ? " \xe2\x86\x91" : " \xe2\x86\x93", sizeof(aBuf));
+
+			if(DoButton_GridHeader(s_aDemoCols[i].m_Caption, aBuf, g_Config.m_DemoSort == s_aDemoCols[i].m_Sort, CUI::ALIGN_CENTER, &s_aDemoCols[i].m_Rect))
+			{
+				if(g_Config.m_DemoSort != s_aDemoCols[i].m_Sort)
+				{
+					g_Config.m_DemoSortOrder = 0;
+					g_Config.m_DemoSort = s_aDemoCols[i].m_Sort;
+				}
+				else
+					g_Config.m_DemoSortOrder ^= 1;
+				m_lDemos.sort_range();
+			}
+		}
+	}
+
 	UiDoListboxStart(&s_ListBoxState, &s_ListBoxState, 20.0f, 0, m_lDemos.size(), 1, m_DemolistSelectedIndex);
 	for(sorted_array<CDemoItem>::range r = m_lDemos.all(); !r.empty(); r.pop_front())
 	{
@@ -386,7 +464,7 @@ void CMenus::RenderDemoList(CUIRect MainView)
 		const CDemoItem& DemoItem = r.front();
 		int DemoMarkerCount = 0;
 		if(DemoItem.m_Valid && DemoItem.m_InfosLoaded)
-			DemoMarkerCount = DemoGetMarkerCount(DemoItem.m_Info);
+			DemoMarkerCount = DemoItem.DemoGetMarkerCount();
 
 		if(Item.m_Visible)
 		{
@@ -403,20 +481,48 @@ void CMenus::RenderDemoList(CUIRect MainView)
 					IconColor = DemoMarkerCount > 0 ? vec4(0.5, 1, 0.5, 1) : vec4(1,1,1,1);
 			}
 
-			DoIconColor(IMAGE_FILEICONS, r.front().m_IsDir?SPRITE_FILE_FOLDER:SPRITE_FILE_DEMO1, &FileIcon, IconColor);
-			if((&r.front() - m_lDemos.base_ptr()) == m_DemolistSelectedIndex) // selected
+			DoIconColor(IMAGE_FILEICONS, DemoItem.m_IsDir?SPRITE_FILE_FOLDER:SPRITE_FILE_DEMO1, &FileIcon, IconColor);
+
+			CUI::EAlignment Align = m_DemoSidebarActive ? CUI::ALIGN_LEFT : CUI::ALIGN_CENTER;
+			for(int i = 0; i < NUM_DEMOS_COLS; i++)
 			{
-				TextRender()->TextColor(0.0f, 0.0f, 0.0f, 1.0f);
-				TextRender()->TextOutlineColor(1.0f, 1.0f, 1.0f, 0.25f);
-				Item.m_Rect.y += 2.0f;
-				UI()->DoLabel(&Item.m_Rect, r.front().m_aName, Item.m_Rect.h*ms_FontmodHeight*0.8f, CUI::ALIGN_CENTER);
-				TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
-				TextRender()->TextOutlineColor(0.0f, 0.0f, 0.0f, 0.3f);
-			}
-			else
-			{
-				Item.m_Rect.y += 2.0f;
-				UI()->DoLabel(&Item.m_Rect, r.front().m_aName, Item.m_Rect.h*ms_FontmodHeight*0.8f, CUI::ALIGN_CENTER);
+				if(m_DemoSidebarActive)
+				{
+					Item.m_Rect.x = s_aDemoCols[i].m_Rect.x + 5.0f;
+					Item.m_Rect.w = s_aDemoCols[i].m_Rect.w;
+				}
+				
+				char aBuf[64];
+				if(s_aDemoCols[i].m_ID == COL_DEMOS_DEMONAME)
+				{
+					str_copy(aBuf, DemoItem.m_aName, sizeof(aBuf));
+				}
+				else if(s_aDemoCols[i].m_ID == COL_DEMOS_MAPNAME && m_DemoSidebarActive)
+				{
+					if(!DemoItem.m_Valid || !DemoItem.m_InfosLoaded)
+						continue;
+					str_copy(aBuf, DemoItem.m_Info.m_aMapName, sizeof(aBuf));
+				}
+				else if(s_aDemoCols[i].m_ID == COL_DEMOS_LENGTH && m_DemoSidebarActive)
+				{
+					if(!DemoItem.m_Valid || !DemoItem.m_InfosLoaded)
+						continue;
+					int Length = DemoItem.Length();
+					str_format(aBuf, sizeof(aBuf), "%d:%02d", Length/60, Length%60);
+				}
+				else
+					continue;
+
+				if((&DemoItem - m_lDemos.base_ptr()) == m_DemolistSelectedIndex) // selected
+				{
+					TextRender()->TextColor(0.0f, 0.0f, 0.0f, 1.0f);
+					TextRender()->TextOutlineColor(1.0f, 1.0f, 1.0f, 0.25f);
+					UI()->DoLabel(&Item.m_Rect, aBuf, Item.m_Rect.h*ms_FontmodHeight*0.8f, Align, Item.m_Rect.w, false);
+					TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+					TextRender()->TextOutlineColor(0.0f, 0.0f, 0.0f, 0.3f);
+				}
+				else
+					UI()->DoLabel(&Item.m_Rect, aBuf, Item.m_Rect.h*ms_FontmodHeight*0.8f, Align, Item.m_Rect.w, false);
 			}
 		}
 	}
@@ -545,8 +651,7 @@ float CMenus::RenderDemoDetails(CUIRect View, void *pUser)
 
 		View.HSplitTop(Spacing, 0, &View);
 		View.HSplitTop(ButtonHeight, &Button, &View);
-		int Length = ((pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].m_Info.m_aLength[0]<<24)&0xFF000000) | ((pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].m_Info.m_aLength[1]<<16)&0xFF0000) |
-					((pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].m_Info.m_aLength[2]<<8)&0xFF00) | (pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].m_Info.m_aLength[3]&0xFF);
+		int Length = pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].Length();
 		char aBuf[64];
 		str_format(aBuf, sizeof(aBuf), "%d:%02d", Length/60, Length%60);
 		pSelf->DoInfoBox(&Button, Localize("Length"), aBuf);
@@ -562,7 +667,7 @@ float CMenus::RenderDemoDetails(CUIRect View, void *pUser)
 
 		View.HSplitTop(Spacing, 0, &View);
 		View.HSplitTop(ButtonHeight, &Button, &View);
-		const int MarkerCount = DemoGetMarkerCount(pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].m_Info);
+		const int MarkerCount =pSelf->m_lDemos[pSelf->m_DemolistSelectedIndex].DemoGetMarkerCount();
 		str_format(aBuf, sizeof(aBuf), "%d", MarkerCount);
 		if(MarkerCount > 0)
 			pSelf->TextRender()->TextColor(0.5, 1, 0.5, 1);

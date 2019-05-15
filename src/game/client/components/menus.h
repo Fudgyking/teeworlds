@@ -407,6 +407,14 @@ private:
 	int *m_pActiveDropdown;
 
 	// demo
+	enum
+	{
+		SORT_DEMONAME=0,
+		SORT_MAPNAME,
+		SORT_LENGTH,
+		SORT_DATE,
+	};
+
 	struct CDemoItem
 	{
 		char m_aFilename[128];
@@ -418,15 +426,51 @@ private:
 		bool m_Valid;
 		CDemoHeader m_Info;
 
-		bool operator<(const CDemoItem &Other) const { return !str_comp(m_aFilename, "..") ? true : !str_comp(Other.m_aFilename, "..") ? false :
-														m_IsDir && !Other.m_IsDir ? true : !m_IsDir && Other.m_IsDir ? false :
-														str_comp_filenames(m_aFilename, Other.m_aFilename) < 0; }
-	};
+		int Length() const
+		{
+			return (((m_Info.m_aLength[0]<<24)&0xFF000000) | ((m_Info.m_aLength[1]<<16)&0xFF0000) |
+					((m_Info.m_aLength[2]<<8)&0xFF00)      | ((m_Info.m_aLength[3]&0xFF)));
+		}
 
+		int DemoGetMarkerCount() const
+		{
+			return ((m_Info.m_aNumTimelineMarkers[0]<<24)&0xFF000000) | ((m_Info.m_aNumTimelineMarkers[1]<<16)&0xFF0000) |
+					((m_Info.m_aNumTimelineMarkers[2]<<8)&0xFF00)     |	(m_Info.m_aNumTimelineMarkers[3]&0xFF);
+		}
+
+		bool operator<(const CDemoItem &Other) const
+		{
+			if(!str_comp(m_aFilename, ".."))
+				return true;
+			if(!str_comp(Other.m_aFilename, ".."))
+				return false;
+			if(m_IsDir && !Other.m_IsDir)
+				return true;
+			if(!m_IsDir && Other.m_IsDir)
+				return false;
+
+			const CDemoItem* Demo1 = g_Config.m_DemoSortOrder ? &Other : this;
+			const CDemoItem* Demo2 = g_Config.m_DemoSortOrder ? this : &Other;
+
+			if(g_Config.m_DemoSort == SORT_DEMONAME)
+				return str_comp_filenames(Demo1->m_aFilename, Demo2->m_aFilename) < 0; 
+			if(g_Config.m_DemoSort == SORT_MAPNAME)
+				return str_comp_filenames(Demo1->m_Info.m_aMapName, Demo2->m_Info.m_aMapName) < 0;
+			if(g_Config.m_DemoSort == SORT_LENGTH)
+				return Demo1->Length() < Demo2->Length();
+
+			return true;
+		}
+	};
+	
 	sorted_array<CDemoItem> m_lDemos;
 	char m_aCurrentDemoFolder[256];
 	char m_aCurrentDemoFile[64];
 	int m_DemolistSelectedIndex;
+	int m_DemolistLoadingIndex;
+	int m_TotalDemosLoaded;
+	bool m_AllDemosLoaded;
+	bool m_DemoSidebarActive;
 	bool m_DemolistSelectedIsDir;
 	int m_DemolistStorageType;
 	int64 m_SeekBarActivatedTime;
@@ -575,7 +619,24 @@ private:
 		NUM_BROWSER_COLS,
 	};
 
-	struct CColumn
+	enum
+	{
+		COL_DEMOS_DEMONAME=0,
+		COL_DEMOS_MAPNAME,
+		COL_DEMOS_LENGTH,
+		NUM_DEMOS_COLS,
+	};
+
+	struct CDemoColumn
+	{
+		int m_ID;
+		int m_Sort;
+		CLocConstString m_Caption;
+		float m_Width;
+		CUIRect m_Rect;
+	};
+
+	struct CBrColumn
 	{
 		int m_ID;
 		int m_Sort;
@@ -588,7 +649,7 @@ private:
 		CUI::EAlignment m_Align;
 	};
 
-	static CColumn ms_aBrowserCols[NUM_BROWSER_COLS];
+	static CBrColumn ms_aBrowserCols[NUM_BROWSER_COLS];
 
 	enum
 	{

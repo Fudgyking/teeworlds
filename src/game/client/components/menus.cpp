@@ -81,6 +81,9 @@ CMenus::CMenus()
 	m_PrevCursorActive = false;
 
 	str_copy(m_aCurrentDemoFolder, "demos", sizeof(m_aCurrentDemoFolder));
+	m_TotalDemosLoaded = 0;
+	m_AllDemosLoaded = false;
+	m_DemoSidebarActive = false;
 	m_aCallvoteReason[0] = 0;
 	m_aFilterString[0] = 0;
 
