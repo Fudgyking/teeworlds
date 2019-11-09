@@ -41,10 +41,6 @@ void CControls::OnRelease()
 
 void CControls::OnPlayerDeath()
 {
-	CServerInfo CurrentServerInfo;
-	Client()->GetServerInfo(&CurrentServerInfo);
-	if(!IsRace(&CurrentServerInfo) || !m_pClient->m_Snap.m_pGameDataRace || !(m_pClient->m_Snap.m_pGameDataRace->m_RaceFlags&RACEFLAG_KEEP_WANTED_WEAPON))
-		m_LastData.m_WantedWeapon = m_InputData.m_WantedWeapon = 0;
 }
 
 static void ConKeyInputState(IConsole::IResult *pResult, void *pUserData)

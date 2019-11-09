@@ -798,7 +798,7 @@ void CHud::RenderLabeledValue(const char *pLabel, float Value,
 	// draw sign
 	char Sign = (Value == 0.0f ? '=' : (Value > 0.0f ? '+' : '-'));
 	str_format(aBuffer, sizeof(aBuffer), "%c", Sign);
-	float SignWidth = TextRender()->TextWidth(0, FontSize, aBuffer, -1);
+	float SignWidth = TextRender()->TextWidth(0, FontSize, aBuffer, -1, -1.0f);
 	TextRender()->Text(0, 10.0f + LabelWidth + (7.0f-SignWidth)/2.0f, OffsetY, FontSize, aBuffer, -1);
 
 	// draw value

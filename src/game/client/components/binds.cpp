@@ -13,7 +13,7 @@ const int CBinds::s_aaDefaultBindKeys[][2] = {
 	{'t', 0}, {'y', 0}, {'x', 0},
 	{KEY_F3, 0}, {KEY_F4, 0},
 	{'r', 0},
-	KEY_PAGEUP, KEY_PAGEDOWN,
+	{KEY_PAGEUP, 0}, {KEY_PAGEDOWN, 0}
 };
 const char CBinds::s_aaDefaultBindValues[][32] = {
 	"toggle_local_console", "toggle_remote_console", "+scoreboard", "+stats", "+show_chat", "screenshot", "snd_toggle",
