@@ -786,6 +786,68 @@ void CHud::OnMessage(int MsgType, void *pRawMsg)
 	}
 }
 
+void CHud::RenderLabeledValue(const char *pLabel, float Value,
+							  float FontSize, float LabelWidth, float OffsetY)
+{
+	OffsetY += (m_Height-FontSize)/2.0f;
+	char aBuffer[256];
+
+	// draw label
+	TextRender()->Text(0, 10.0f, OffsetY, FontSize, pLabel, -1);
+
+	// draw sign
+	char Sign = (Value == 0.0f ? '=' : (Value > 0.0f ? '+' : '-'));
+	str_format(aBuffer, sizeof(aBuffer), "%c", Sign);
+	float SignWidth = TextRender()->TextWidth(0, FontSize, aBuffer, -1);
+	TextRender()->Text(0, 10.0f + LabelWidth + (7.0f-SignWidth)/2.0f, OffsetY, FontSize, aBuffer, -1);
+
+	// draw value
+	float Abs = absolute(Value);
+	str_format(aBuffer, sizeof(aBuffer), "%04d (%03d)", round_to_int(Abs), round_to_int(Abs/32.0f));
+	TextRender()->Text(0, 10.0f + LabelWidth + 7.0f, OffsetY, FontSize, aBuffer, -1);
+}
+
+void CHud::RenderUsefulInfo()
+{
+	int Angle = angle(m_pClient->m_pControls->m_MousePos) * 256.0f + 400;
+	const CNetObj_PlayerInput *pInput = &m_pClient->m_pControls->m_InputData;
+	
+	const CNetObj_Character *pChar = m_pClient->m_Snap.m_pLocalCharacter;
+	if(!pChar){
+
+		int specId = m_pClient->m_Snap.m_SpecInfo.m_SpectatorID;
+		if(specId == -1) 
+			return;
+
+		//render spectated tee values instead if possible
+		pChar = &m_pClient->m_Snap.m_aCharacters[specId].m_Cur;
+		if(!pChar)
+			return;
+
+		Angle = pChar->m_Angle + 400;
+	}
+
+	// dimensions
+	float FontSize = 6.0f;
+	float LabelWidth = 20.0f;
+
+	// compute values
+	float VelX = pChar->m_VelX / 256.0f * 50;
+	float VelY = pChar->m_VelY / 256.0f * 50;
+	float Vel = sqrt(VelX*VelX + VelY*VelY);
+	int Fire = pInput->m_Fire;
+	
+	// draw values
+	static const int NUM_VALUES = 4;
+	const char *apLabels[NUM_VALUES] = {"VelX", "VelY", "Vel", "Angle"};
+	float aValues[NUM_VALUES] = {VelX, VelY, Vel, float(Angle)};
+	for(int i = 0; i < NUM_VALUES; i++)
+	{
+		float OffsetY = -NUM_VALUES*FontSize/2.0f + i*FontSize;
+		RenderLabeledValue(apLabels[i], aValues[i], FontSize, LabelWidth, OffsetY);
+	}
+}
+
 void CHud::OnRender()
 {
 	if(!m_pClient->m_Snap.m_pGameData)
@@ -839,6 +901,8 @@ void CHud::OnRender()
 			RenderConnectionWarning();
 		RenderTeambalanceWarning();
 		RenderVoting();
+
+		RenderUsefulInfo();
 	}
 	RenderCursor();
 }

@@ -33,6 +33,10 @@ class CHud : public CComponent
 	void RenderWarmupTimer();
 	void RenderRaceTime(const CNetObj_PlayerInfoRace *pRaceInfo);
 	void RenderCheckpoint();
+
+	void RenderLabeledValue(const char *pLabel, float Value,
+							float FontSize, float LabelWidth, float OffsetY);
+	void RenderUsefulInfo();
 public:
 	CHud();
 
