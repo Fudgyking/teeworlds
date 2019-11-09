@@ -813,11 +813,11 @@ static void FormatMapDownloadFilename(const char *pName, const SHA256_DIGEST *pS
 	{
 		char aSha256[SHA256_MAXSTRSIZE];
 		sha256_str(*pSha256, aSha256, sizeof(aSha256));
-		str_format(pBuffer, BufferSize, "downloadedmaps/%s_%s.map", pName, aSha256);
+		str_format(pBuffer, BufferSize, "downloadedmaps07/%s_%s.map", pName, aSha256);
 	}
 	else
 	{
-		str_format(pBuffer, BufferSize, "downloadedmaps/%s_%08x.map", pName, Crc);
+		str_format(pBuffer, BufferSize, "downloadedmaps07/%s_%08x.map", pName, Crc);
 	}
 }
 

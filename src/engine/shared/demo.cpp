@@ -45,13 +45,13 @@ int CDemoRecorder::Start(class IStorage *pStorage, class IConsole *pConsole, con
 		// try the downloaded maps (sha256)
 		char aSha256[SHA256_MAXSTRSIZE];
 		sha256_str(Sha256, aSha256, sizeof(aSha256));
-		str_format(aMapFilename, sizeof(aMapFilename), "downloadedmaps/%s_%s.map", pMap, aSha256);
+		str_format(aMapFilename, sizeof(aMapFilename), "downloadedmaps07/%s_%s.map", pMap, aSha256);
 		MapFile = pStorage->OpenFile(aMapFilename, IOFLAG_READ, IStorage::TYPE_ALL, 0, 0, CDataFileReader::CheckSha256, &Sha256);
 	}
 	if(!MapFile)
 	{
 		// try the downloaded maps (crc)
-		str_format(aMapFilename, sizeof(aMapFilename), "downloadedmaps/%s_%08x.map", pMap, Crc);
+		str_format(aMapFilename, sizeof(aMapFilename), "downloadedmaps07/%s_%08x.map", pMap, Crc);
 		MapFile = pStorage->OpenFile(aMapFilename, IOFLAG_READ, IStorage::TYPE_ALL, 0, 0, CDataFileReader::CheckSha256, &Sha256);
 	}
 	if(!MapFile)
@@ -685,7 +685,7 @@ const char *CDemoPlayer::Load(class IStorage *pStorage, class IConsole *pConsole
 	// TODO: improve map checking (maps folder, check crc)
 	unsigned Crc = (m_Info.m_Header.m_aMapCrc[0]<<24) | (m_Info.m_Header.m_aMapCrc[1]<<16) | (m_Info.m_Header.m_aMapCrc[2]<<8) | (m_Info.m_Header.m_aMapCrc[3]);
 	char aMapFilename[128];
-	str_format(aMapFilename, sizeof(aMapFilename), "downloadedmaps/%s_%08x.map", m_Info.m_Header.m_aMapName, Crc);
+	str_format(aMapFilename, sizeof(aMapFilename), "downloadedmaps07/%s_%08x.map", m_Info.m_Header.m_aMapName, Crc);
 	IOHANDLE MapFile = pStorage->OpenFile(aMapFilename, IOFLAG_READ, IStorage::TYPE_ALL);
 
 	if(MapFile)

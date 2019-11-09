@@ -3366,8 +3366,8 @@ void CEditor::FilelistPopulate(int StorageType)
 	if(m_FileDialogStorageType != IStorage::TYPE_SAVE && !str_comp(m_pFileDialogPath, "maps"))
 	{
 		CFilelistItem Item;
-		str_copy(Item.m_aFilename, "downloadedmaps", sizeof(Item.m_aFilename));
-		str_copy(Item.m_aName, "downloadedmaps/", sizeof(Item.m_aName));
+		str_copy(Item.m_aFilename, "downloadedmaps07", sizeof(Item.m_aFilename));
+		str_copy(Item.m_aName, "downloadedmaps07/", sizeof(Item.m_aName));
 		Item.m_IsDir = true;
 		Item.m_IsLink = true;
 		Item.m_StorageType = IStorage::TYPE_SAVE;
