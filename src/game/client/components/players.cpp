@@ -40,9 +40,9 @@ inline float AngularApproach(float Src, float Dst, float Amount)
 void CPlayers::RenderHook(
 	const CNetObj_Character *pPrevChar,
 	const CNetObj_Character *pPlayerChar,
-	const CNetObj_PlayerInfo *pPrevInfo,
-	const CNetObj_PlayerInfo *pPlayerInfo,
-	int ClientID
+	const CTeeRenderInfo *pRenderInfo,
+	int ClientID,
+	float Intra
 	)
 {
 	CNetObj_Character Prev;
@@ -50,9 +50,11 @@ void CPlayers::RenderHook(
 	Prev = *pPrevChar;
 	Player = *pPlayerChar;
 
-	CTeeRenderInfo RenderInfo = m_aRenderInfo[ClientID];
+	CTeeRenderInfo RenderInfo = *pRenderInfo;
 
 	float IntraTick = Client()->IntraGameTick();
+	if(ClientID < 0)
+		IntraTick = Intra;
 
 	// set size
 	RenderInfo.m_Size = 64.0f;
@@ -82,6 +84,9 @@ void CPlayers::RenderHook(
 		Graphics()->TextureSet(g_pData->m_aImages[IMAGE_GAME].m_Id);
 		Graphics()->QuadsBegin();
 		//Graphics()->QuadsBegin();
+
+		if(ClientID < 0)
+			Graphics()->SetColor(0.5f, 0.5f, 0.5f, 0.5f);
 
 		vec2 Pos = Position;
 		vec2 HookPos;
@@ -141,9 +146,10 @@ void CPlayers::RenderHook(
 void CPlayers::RenderPlayer(
 	const CNetObj_Character *pPrevChar,
 	const CNetObj_Character *pPlayerChar,
-	const CNetObj_PlayerInfo *pPrevInfo,
-	const CNetObj_PlayerInfo *pPlayerInfo,
-	int ClientID
+	const CNetObj_PlayerInfo *pInfo,
+	const CTeeRenderInfo *pRenderInfo,
+	int ClientID,
+	float Intra
 	)
 {
 	CNetObj_Character Prev;
@@ -151,13 +157,14 @@ void CPlayers::RenderPlayer(
 	Prev = *pPrevChar;
 	Player = *pPlayerChar;
 
-	CNetObj_PlayerInfo pInfo = *pPlayerInfo;
-	CTeeRenderInfo RenderInfo = m_aRenderInfo[ClientID];
+	CTeeRenderInfo RenderInfo = *pRenderInfo;
 
 	// set size
 	RenderInfo.m_Size = 64.0f;
 
 	float IntraTick = Client()->IntraGameTick();
+	if(ClientID < 0)
+		IntraTick = Intra;
 
 	if(Prev.m_Angle < pi*-128 && Player.m_Angle > pi*128)
 		Prev.m_Angle += 2*pi*256;
@@ -275,6 +282,9 @@ void CPlayers::RenderPlayer(
 		Graphics()->TextureSet(g_pData->m_aImages[IMAGE_GAME].m_Id);
 		Graphics()->QuadsBegin();
 		Graphics()->QuadsSetRotation(State.GetAttach()->m_Angle*pi*2+Angle);
+
+		if(ClientID < 0)
+			Graphics()->SetColor(0.5f, 0.5f, 0.5f, 0.5f);
 
 		// normal weapons
 		int iw = clamp(Player.m_Weapon, 0, NUM_WEAPONS-1);
@@ -437,7 +447,10 @@ void CPlayers::RenderPlayer(
 
 	RenderTools()->RenderTee(&State, &RenderInfo, Player.m_Emote, Direction, Position);
 
-	if(pInfo.m_PlayerFlags&PLAYERFLAG_CHATTING)
+	if(ClientID < 0)
+		return;
+
+	if(pInfo->m_PlayerFlags&PLAYERFLAG_CHATTING)
 	{
 		Graphics()->TextureSet(g_pData->m_aImages[IMAGE_EMOTICONS].m_Id);
 		Graphics()->QuadsBegin();
@@ -527,10 +540,9 @@ void CPlayers::OnRender()
 			if(!m_pClient->m_Snap.m_aCharacters[i].m_Active)
 				continue;
 
-			const void *pPrevInfo = Client()->SnapFindItem(IClient::SNAP_PREV, NETOBJTYPE_PLAYERINFO, i);
 			const void *pInfo = Client()->SnapFindItem(IClient::SNAP_CURRENT, NETOBJTYPE_PLAYERINFO, i);
 
-			if(pPrevInfo && pInfo)
+			if(pInfo)
 			{
 				//
 				bool Local = m_pClient->m_LocalClientID == i;
@@ -544,16 +556,15 @@ void CPlayers::OnRender()
 					RenderHook(
 							&PrevChar,
 							&CurChar,
-							(const CNetObj_PlayerInfo *)pPrevInfo,
-							(const CNetObj_PlayerInfo *)pInfo,
+							&m_aRenderInfo[i],
 							i
 						);
 				else
 					RenderPlayer(
 							&PrevChar,
 							&CurChar,
-							(const CNetObj_PlayerInfo *)pPrevInfo,
 							(const CNetObj_PlayerInfo *)pInfo,
+							&m_aRenderInfo[i],
 							i
 						);
 			}

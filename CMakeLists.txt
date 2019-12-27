@@ -1315,6 +1315,8 @@ set_src(ENGINE_SHARED GLOB src/engine/shared
   engine.cpp
   filecollection.cpp
   filecollection.h
+  ghost.cpp
+  ghost.h
   huffman.cpp
   huffman.h
   jobs.cpp
@@ -1354,6 +1356,7 @@ set_src(GAME_SHARED GLOB src/game
   collision.h
   gamecore.cpp
   gamecore.h
+  ghost.h
   layers.cpp
   layers.h
   mapitems.h
@@ -1436,6 +1439,8 @@ if(CLIENT)
     components/emoticon.h
     components/flow.cpp
     components/flow.h
+    components/ghost.cpp
+    components/ghost.h
     components/hud.cpp
     components/hud.h
     components/infomessages.cpp
@@ -1452,6 +1457,7 @@ if(CLIENT)
     components/menus_callback.cpp
     components/menus_demo.cpp
     components/menus_ingame.cpp
+    components/menus_ingame_ghost.cpp
     components/menus_popups.cpp
     components/menus_settings.cpp
     components/menus_start.cpp

@@ -89,6 +89,8 @@ CMenus::CMenus()
 	m_SelectedServer.m_Filter = -1;
 	m_SelectedServer.m_Index = -1;
 	m_ActiveListBox = ACTLB_NONE;
+
+	m_LoadingGhosts = false;
 }
 
 float CMenus::ButtonFade(CButtonContainer *pBC, float Seconds, int Checked)
@@ -1191,8 +1193,9 @@ void CMenus::RenderMenubar(CUIRect Rect)
 			Alpha = InactiveAlpha;
 
 		// render header backgrounds
+		float GhostAdditionalSize = m_pClient->m_GameInfo.m_GameFlags&GAMEFLAG_RACE ? ButtonWidth/2.5f + Spacing : 0.0f;
 		CUIRect Left, Right;
-		Box.VSplitLeft(ButtonWidth*4.0f + Spacing*3.0f, &Left, 0);
+		Box.VSplitLeft(ButtonWidth*4.0f + Spacing*3.0f + GhostAdditionalSize, &Left, 0);
 		Box.VSplitRight(ButtonWidth*1.5f + Spacing, 0, &Right);
 		RenderTools()->DrawUIRect4(&Left, vec4(0.0f, 0.0f, 0.0f, 0.0f), vec4(0.0f, 0.0f, 0.0f, 0.0f), vec4(0.0f, 0.0f, 0.0f, g_Config.m_ClMenuAlpha/100.0f), vec4(0.0f, 0.0f, 0.0f, g_Config.m_ClMenuAlpha/100.0f), CUI::CORNER_B, 5.0f);
 		RenderTools()->DrawUIRect4(&Right, vec4(0.0f, 0.0f, 0.0f, 0.0f), vec4(0.0f, 0.0f, 0.0f, 0.0f), vec4(0.0f, 0.0f, 0.0f, g_Config.m_ClMenuAlpha/100.0f), vec4(0.0f, 0.0f, 0.0f, g_Config.m_ClMenuAlpha/100.0f), CUI::CORNER_B, 5.0f);
@@ -1222,6 +1225,15 @@ void CMenus::RenderMenubar(CUIRect Rect)
 		static CButtonContainer s_CallVoteButton;
 		if(DoButton_MenuTabTop(&s_CallVoteButton, Localize("Call vote"), m_ActivePage == PAGE_CALLVOTE, &Button, Alpha, Alpha) || CheckHotKey(KEY_V))
 			NewPage = PAGE_CALLVOTE;
+
+		if(m_pClient->m_GameInfo.m_GameFlags&GAMEFLAG_RACE)
+		{
+			Left.VSplitLeft(Spacing, 0, &Left); // little space
+			Left.VSplitLeft(ButtonWidth/2.5f, &Button, &Left);
+			static CButtonContainer s_GhostsButton;
+			if(DoButton_SpriteID(&s_GhostsButton, IMAGE_EMOTICONS, SPRITE_GHOST, m_GamePage == PAGE_GHOST, &Button))
+				NewPage = PAGE_GHOST;
+		}
 
 		Right.VSplitRight(ButtonWidth, &Right, &Button);
 		static CButtonContainer s_SettingsButton;
@@ -1823,6 +1835,8 @@ int CMenus::Render()
 					RenderServerbrowser(MainView);
 				else if(m_GamePage == PAGE_LAN)
 					RenderServerbrowser(MainView);
+				else if(m_GamePage == PAGE_GHOST)
+					RenderGhost(MainView);
 			}
 			else
 			{
@@ -2626,6 +2640,10 @@ extern "C" void font_debug_render();
 void CMenus::OnRender()
 {
 	UI()->StartCheck();
+
+	// ugly... does not belong here
+	if(m_LoadingGhosts && m_ScanGhostsJob.Status() == CJob::STATE_DONE)
+		GhostlistUpdate();
 
 	// reset cursor
 	if(m_CursorActive)

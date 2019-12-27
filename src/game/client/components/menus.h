@@ -6,9 +6,11 @@
 #include <base/vmath.h>
 #include <base/tl/sorted_array.h>
 
+#include <engine/engine.h>
 #include <engine/graphics.h>
 #include <engine/demo.h>
 #include <engine/contacts.h>
+#include <engine/shared/ghost.h>
 
 #include <game/voting.h>
 #include <game/client/component.h>
@@ -17,6 +19,27 @@
 
 #include "skins.h"
 
+struct CGhostEntry
+{
+	char m_aFilename[256];
+	char m_aPlayer[MAX_NAME_LENGTH];
+
+	int m_Time;
+	int m_Slot;
+	bool m_Own;
+	bool m_AutoDelete;
+
+	int m_ButtonActiveID;
+	int m_ButtonMirroredID;
+	int m_ButtonSaveID;
+
+	CGhostEntry() : m_Slot(-1), m_Own(false), m_AutoDelete(true) { m_aFilename[0] = 0; }
+
+	bool operator<(const CGhostEntry &Other) const { return m_Time < Other.m_Time; }
+
+	bool Active() const { return m_Slot != -1; }
+	bool HasFile() const { return m_aFilename[0]; }
+};
 
 // component to fetch keypresses, override all other input
 class CMenusKeyBinder : public CComponent
@@ -270,6 +293,7 @@ private:
 		PAGE_SETTINGS,
 		PAGE_SYSTEM,
 		PAGE_START,
+		PAGE_GHOST,
 
 		SETTINGS_GENERAL=0,
 		SETTINGS_PLAYER,
@@ -640,6 +664,7 @@ private:
 	void RenderServerControl(CUIRect MainView);
 	void RenderServerControlKick(CUIRect MainView, bool FilterSpectators);
 	bool RenderServerControlServer(CUIRect MainView);
+	void RenderGhost(CUIRect MainView);
 
 	// found in menus_browser.cpp
 	// int m_ScrollOffset;
@@ -711,6 +736,23 @@ private:
 	void SetMenuPage(int NewPage);
 
 	bool CheckHotKey(int Key);
+
+	struct CGhostFile
+	{
+		char m_aFilename[256];
+		CGhostHeader m_Header;
+	};
+
+	CJob m_ScanGhostsJob;
+	array<CGhostFile> m_lGhostFiles;
+	bool m_LoadingGhosts;
+
+	void GhostlistUpdate();
+	void DeleteGhostEntry(int Index);
+
+	static int GhostlistFetchCallback(const char *pName, int IsDir, int StorageType, void *pUser);
+	static int ScanGhostsThread(void *pUser);
+
 public:
 	struct CSwitchTeamInfo
 	{
@@ -740,5 +782,13 @@ public:
 	virtual void OnRender();
 	virtual bool OnInput(IInput::CEvent Event);
 	virtual bool OnMouseMove(float x, float y);
+
+	// Ghost
+	sorted_array<CGhostEntry> m_lGhosts;
+	
+	void GhostlistPopulate(bool ForceReload);
+	const CGhostEntry *GetOwnGhost() const;
+	void UpdateOwnGhost(CGhostEntry Item);
 };
+
 #endif

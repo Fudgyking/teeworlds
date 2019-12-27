@@ -329,5 +329,8 @@ public:
 	void ToggleFullscreen();
 	void ToggleWindowBordered();
 	void ToggleWindowVSync();
+
+	// Race
+	unsigned GetMapCrc() const { return m_CurrentMapCrc; }
 };
 #endif

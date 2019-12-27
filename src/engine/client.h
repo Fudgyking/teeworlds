@@ -154,6 +154,9 @@ public:
 	virtual bool SoundInitFailed() const = 0;
 
 	virtual IGraphics::CTextureHandle GetDebugFont() const = 0; // TODO: remove this function
+
+	// Race
+	virtual unsigned GetMapCrc() const = 0;
 };
 
 class IGameClient : public IInterface
