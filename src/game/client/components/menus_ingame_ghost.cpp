@@ -29,7 +29,10 @@ int CMenus::GhostlistFetchCallback(const char *pName, int IsDir, int StorageType
 {
 	CMenus *pSelf = (CMenus *)pUser;
 	int Length = str_length(pName);
-	if(IsDir || Length < 4 || str_comp(pName+Length-4, ".gho") != 0)
+	const char *mapName = pSelf->Client()->GetCurrentMapName();
+	int mapNameLength = str_length(mapName);
+	//if its not a ghost file for the current map
+	if(IsDir || Length < 4 || str_comp(pName+Length-4, ".gho") != 0 || str_comp_nocase_num(mapName, pName, mapNameLength) != 0)
 		return 0;
 
 	CGhostFile File;
