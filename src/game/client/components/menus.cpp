@@ -1231,7 +1231,7 @@ void CMenus::RenderMenubar(CUIRect Rect)
 			Left.VSplitLeft(Spacing, 0, &Left); // little space
 			Left.VSplitLeft(ButtonWidth/2.5f, &Button, &Left);
 			static CButtonContainer s_GhostsButton;
-			if(DoButton_SpriteID(&s_GhostsButton, IMAGE_EMOTICONS, SPRITE_GHOST, m_GamePage == PAGE_GHOST, &Button))
+			if(DoButton_SpriteID(&s_GhostsButton, IMAGE_EMOTICONS, SPRITE_GHOST, m_GamePage == PAGE_GHOST, &Button)  || CheckHotKey(KEY_H))
 				NewPage = PAGE_GHOST;
 		}
 
