@@ -139,8 +139,11 @@ void CGhost::OnNewSnapshot(bool Predicted)
 	if(!m_Loaded)
 		LoadGhosts();
 
-	const CNetObj_PlayerInfoRace *pRaceInfo = m_pClient->m_Snap.m_paPlayerInfosRace[m_pClient->m_LocalClientID];
-	if(!pRaceInfo || !m_pClient->m_Snap.m_pLocalCharacter || !m_pClient->m_Snap.m_pLocalPrevCharacter)
+	int playerOfInterest = GetFocusedPlayerId();
+
+	const CNetObj_PlayerInfoRace *pRaceInfo = m_pClient->m_Snap.m_paPlayerInfosRace[playerOfInterest];
+	const CNetObj_Character *pCharacter =  &m_pClient->m_Snap.m_aCharacters[playerOfInterest].m_Cur;
+	if(!pRaceInfo || !pCharacter)
 		return;
 
 	int RaceTick = pRaceInfo->m_RaceStartTick;
@@ -162,7 +165,7 @@ void CGhost::OnNewSnapshot(bool Predicted)
 	}
 
 	if(m_Recording)
-		AddInfos(m_pClient->m_Snap.m_pLocalCharacter);
+		AddInfos(pCharacter);
 
 	s_LastRaceTick = RaceTick;
 
@@ -295,11 +298,11 @@ void CGhost::StartRecord(int Tick)
 	m_Recording = true;
 	m_CurGhost.Reset();
 	m_CurGhost.m_StartTick = Tick;
-
-	const CGameClient::CClientData *pData = &m_pClient->m_aClients[m_pClient->m_LocalClientID];
+	
+	const CGameClient::CClientData *pData = &m_pClient->m_aClients[GetFocusedPlayerId()];
 	if(m_pClient->m_GameInfo.m_GameFlags&GAMEFLAG_TEAMS)
 		m_CurGhost.m_Team = pData->m_Team;
-	str_copy(m_CurGhost.m_aPlayer, g_Config.m_PlayerName, sizeof(m_CurGhost.m_aPlayer));
+	str_copy(m_CurGhost.m_aPlayer, pData->m_aName, sizeof(m_CurGhost.m_aPlayer));
 	CGhostTools::GetGhostSkin(&m_CurGhost.m_Skin, pData->m_aaSkinPartNames, pData->m_aUseCustomColors, pData->m_aSkinPartColors);
 	InitRenderInfos(&m_CurGhost);
 }
@@ -312,11 +315,11 @@ void CGhost::StopRecord(int Time)
 	if(RecordingToFile)
 		m_GhostRecorder.Stop(m_CurGhost.m_Path.Size(), Time);
 
-	const CGhostEntry *pOwnGhost = m_pClient->m_pMenus->GetOwnGhost();
-	if(Time > 0 && (!pOwnGhost || Time < pOwnGhost->m_Time))
+	const CGhostEntry *pBestGhost = m_pClient->m_pMenus->GetBestGhost(m_CurGhost.m_aPlayer);
+	if(Time > 0 && (!pBestGhost || Time < pBestGhost->m_Time))
 	{
-		if(pOwnGhost && pOwnGhost->Active())
-			Unload(pOwnGhost->m_Slot);
+		if(pBestGhost && pBestGhost->Active())
+			Unload(pBestGhost->m_Slot);
 
 		// add to active ghosts
 		int Slot = GetSlot();
@@ -336,7 +339,7 @@ void CGhost::StopRecord(int Time)
 			Storage()->RenameFile(m_aTmpFilename, Entry.m_aFilename, IStorage::TYPE_SAVE);
 
 		// add entry to menu list
-		m_pClient->m_pMenus->UpdateOwnGhost(Entry);
+		m_pClient->m_pMenus->UpdateBestGhost(Entry);
 	}
 	else if(RecordingToFile) // no new record
 		Storage()->RemoveFile(m_aTmpFilename, IStorage::TYPE_SAVE);
@@ -502,9 +505,19 @@ int CGhost::Load(const char *pFilename)
 	InitRenderInfos(pGhost);
 
 	if(AutoMirroring())
-		pGhost->AutoMirror(m_pClient->m_aClients[m_pClient->m_LocalClientID].m_Team);
+		pGhost->AutoMirror(m_pClient->m_aClients[GetFocusedPlayerId()].m_Team);
 
 	return Slot;
+}
+
+int CGhost::GetFocusedPlayerId() const
+{
+	if(m_pClient->m_Snap.m_SpecInfo.m_Active){
+		int specId = m_pClient->m_Snap.m_SpecInfo.m_SpectatorID;
+		return (specId == -1) ? m_pClient->m_LocalClientID : specId;
+	}
+
+	return m_pClient->m_LocalClientID;
 }
 
 void CGhost::Unload(int Slot)
@@ -563,7 +576,7 @@ void CGhost::OnMessage(int MsgType, void *pRawMsg)
 	if(MsgType == NETMSGTYPE_SV_KILLMSG)
 	{
 		CNetMsg_Sv_KillMsg *pMsg = (CNetMsg_Sv_KillMsg *)pRawMsg;
-		if(pMsg->m_Victim == m_pClient->m_LocalClientID)
+		if(pMsg->m_Victim == GetFocusedPlayerId())
 		{
 			if(m_Recording)
 				StopRecord();
@@ -573,7 +586,7 @@ void CGhost::OnMessage(int MsgType, void *pRawMsg)
 	else if(MsgType == NETMSGTYPE_SV_RACEFINISH)
 	{
 		CNetMsg_Sv_RaceFinish *pMsg = (CNetMsg_Sv_RaceFinish *)pRawMsg;
-		if(pMsg->m_ClientID == m_pClient->m_LocalClientID)
+		if(pMsg->m_ClientID == GetFocusedPlayerId())
 		{
 			if(m_Recording)
 				StopRecord(pMsg->m_Time);
@@ -595,7 +608,7 @@ void CGhost::OnReset()
 void CGhost::LoadGhosts()
 {
 	m_Loaded = true;
-	m_pClient->m_pMenus->GhostlistPopulate(false);
+	m_pClient->m_pMenus->GhostlistPopulate(true);
 
 	if(!(m_pClient->m_GameInfo.m_GameFlags&GAMEFLAG_TEAMS))
 		return;

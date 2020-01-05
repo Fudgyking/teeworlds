@@ -88,6 +88,7 @@ private:
 
 	void AddInfos(const CNetObj_Character *pChar);
 	int GetSlot() const;
+	int GetFocusedPlayerId() const;
 
 	void MirrorChar(CNetObj_Character *pChar, int Middle);
 

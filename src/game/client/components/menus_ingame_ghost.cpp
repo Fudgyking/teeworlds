@@ -58,7 +58,7 @@ void CMenus::GhostlistUpdate()
 	if(Client()->State() != IClient::STATE_ONLINE)
 		return;
 
-	int Own = -1;
+	int BestOwnGhostIndex = -1;
 	for(int i = 0; i < m_lGhostFiles.size(); i++)
 	{
 		CGhostHeader *pHeader = &m_lGhostFiles[i].m_Header;
@@ -72,15 +72,15 @@ void CMenus::GhostlistUpdate()
 			Entry.m_AutoDelete = g_Config.m_ClDeleteOldGhosts;
 			int Index = m_lGhosts.add_unsorted(Entry);
 
-			if(str_comp(Entry.m_aPlayer, g_Config.m_PlayerName) == 0 && (Own == -1 || Entry < m_lGhosts[Own]))
-				Own = Index;
+			if(str_comp(Entry.m_aPlayer, g_Config.m_PlayerName) == 0 && (BestOwnGhostIndex == -1 || Entry < m_lGhosts[BestOwnGhostIndex]))
+				BestOwnGhostIndex = Index;
 		}
 	}
 
-	if(Own != -1)
+	if(BestOwnGhostIndex != -1)
 	{
-		m_lGhosts[Own].m_Own = true;
-		m_lGhosts[Own].m_Slot = m_pClient->m_pGhost->Load(m_lGhosts[Own].m_aFilename);
+		m_lGhosts[BestOwnGhostIndex].m_Selected = true;
+		m_lGhosts[BestOwnGhostIndex].m_Slot = m_pClient->m_pGhost->Load(m_lGhosts[BestOwnGhostIndex].m_aFilename);
 	}
 
 	if(m_lGhosts.size() > 0)
@@ -105,30 +105,32 @@ void CMenus::GhostlistPopulate(bool ForceReload)
 	}
 }
 
-const CGhostEntry *CMenus::GetOwnGhost() const
+const CGhostEntry *CMenus::GetBestGhost(const char* PlayerName) const
 {
 	for(int i = 0; i < m_lGhosts.size(); i++)
-		if(m_lGhosts[i].m_Own)
+		if(str_comp_num(m_lGhosts[i].m_aPlayer, PlayerName, MAX_NAME_LENGTH) == 0)
 			return &m_lGhosts[i];
 	return 0;
 }
 
-void CMenus::UpdateOwnGhost(CGhostEntry Entry)
+void CMenus::UpdateBestGhost(CGhostEntry Entry)
 {
-	int Own = -1;
+	int bestGhostIndex = -1;
 	for(int i = 0; i < m_lGhosts.size(); i++)
-		if(m_lGhosts[i].m_Own)
-			Own = i;
+		if(str_comp_num(m_lGhosts[i].m_aPlayer, Entry.m_aPlayer, MAX_NAME_LENGTH) == 0){
+			bestGhostIndex = i;
+			break;
+		}
 
-	if(Own != -1)
+	if(bestGhostIndex >= 0)
 	{
-		m_lGhosts[Own].m_Slot = -1;
-		m_lGhosts[Own].m_Own = false;
-		if(m_lGhosts[Own].m_AutoDelete && (Entry.HasFile() || !m_lGhosts[Own].HasFile()))
-			DeleteGhostEntry(Own);
+		m_lGhosts[bestGhostIndex].m_Slot = -1;
+		m_lGhosts[bestGhostIndex].m_Selected = false;
+		if(m_lGhosts[bestGhostIndex].m_AutoDelete && (Entry.HasFile() || !m_lGhosts[bestGhostIndex].HasFile()))
+			DeleteGhostEntry(bestGhostIndex);
 	}
 
-	Entry.m_Own = true;
+	Entry.m_Selected = true;
 	m_lGhosts.add(Entry);
 
 	// add to file list
@@ -221,8 +223,6 @@ void CMenus::RenderGhost(CUIRect MainView)
 	MainView.Margin(5.0f, &MainView);
 	MainView.y += ScrollOffset.y;
 
-	const CGhostEntry *pOwnGhost = GetOwnGhost();
-	bool OwnActive = pOwnGhost && pOwnGhost->Active();
 	int FreeSlots = m_pClient->m_pGhost->FreeSlots();
 
 	int NumGhosts = m_lGhosts.size();
@@ -231,7 +231,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 		CGhostEntry *pEntry = &m_lGhosts[i];
 
 		vec3 Color = vec3(1.0f, 1.0f, 1.0f);
-		if(pEntry->m_Own)
+		if(pEntry->m_Selected)
 			Color = HslToRgb(vec3(0.33f, 1.0f, 0.75f));
 
 		TextRender()->TextColor(Color.r, Color.g, Color.b, pEntry->HasFile() ? 1.0f : 0.5f);
@@ -247,8 +247,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 		Row.VSplitLeft(2*Spacing, 0, &Row);
 		Row.VSplitLeft(ButtonHeight, &Label, &Row);
 
-		int ReservedSlots = !pEntry->m_Own && !OwnActive;
-		bool BtnActive = pEntry->Active() || FreeSlots > ReservedSlots;
+		bool BtnActive = pEntry->Active() || FreeSlots > 0;
 		if(DoButton_Toggle(&pEntry->m_ButtonActiveID, pEntry->Active(), &Label, BtnActive))
 		{
 			if(pEntry->Active())

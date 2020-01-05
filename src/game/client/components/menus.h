@@ -26,14 +26,14 @@ struct CGhostEntry
 
 	int m_Time;
 	int m_Slot;
-	bool m_Own;
+	bool m_Selected;
 	bool m_AutoDelete;
 
 	int m_ButtonActiveID;
 	int m_ButtonMirroredID;
 	int m_ButtonSaveID;
 
-	CGhostEntry() : m_Slot(-1), m_Own(false), m_AutoDelete(true) { m_aFilename[0] = 0; }
+	CGhostEntry() : m_Slot(-1), m_Selected(false), m_AutoDelete(true) { m_aFilename[0] = 0; }
 
 	bool operator<(const CGhostEntry &Other) const { return m_Time < Other.m_Time; }
 
@@ -787,8 +787,8 @@ public:
 	sorted_array<CGhostEntry> m_lGhosts;
 	
 	void GhostlistPopulate(bool ForceReload);
-	const CGhostEntry *GetOwnGhost() const;
-	void UpdateOwnGhost(CGhostEntry Item);
+	const CGhostEntry *GetBestGhost(const char* PlayerName) const;
+	void UpdateBestGhost(CGhostEntry Item);
 };
 
 #endif
