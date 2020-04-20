@@ -6,6 +6,7 @@
 #include <engine/console.h>
 #include <engine/server.h>
 
+#include <game/commands.h>
 #include <game/layers.h>
 #include <game/voting.h>
 
@@ -36,6 +37,7 @@
 class CGameContext : public IGameServer
 {
 	IServer *m_pServer;
+	class CConfig *m_pConfig;
 	class IConsole *m_pConsole;
 	class IConsole *m_pChatConsole;
 	class IStorage *m_pStorage;
@@ -49,7 +51,7 @@ class CGameContext : public IGameServer
 
 	static void ConTuneParam(IConsole::IResult *pResult, void *pUserData);
 	static void ConTuneReset(IConsole::IResult *pResult, void *pUserData);
-	static void ConTuneDump(IConsole::IResult *pResult, void *pUserData);
+	static void ConTunes(IConsole::IResult *pResult, void *pUserData);
 	static void ConPause(IConsole::IResult *pResult, void *pUserData);
 	static void ConChangeMap(IConsole::IResult *pResult, void *pUserData);
 	static void ConRestart(IConsole::IResult *pResult, void *pUserData);
@@ -82,6 +84,8 @@ class CGameContext : public IGameServer
 	static void ChatConHelp(IConsole::IResult *pResult, void *pUser);
 
 	int m_ChatConsoleClientID;
+	static void NewCommandHook(const CCommandManager::CCommand *pCommand, void *pContext);
+	static void RemoveCommandHook(const CCommandManager::CCommand *pCommand, void *pContext);
 
 	CGameContext(int Resetting);
 	void Construct(int Resetting);
@@ -89,6 +93,7 @@ class CGameContext : public IGameServer
 	bool m_Resetting;
 public:
 	IServer *Server() const { return m_pServer; }
+	class CConfig *Config() { return m_pConfig; }
 	class IConsole *Console() { return m_pConsole; }
 	class IStorage *Storage() { return m_pStorage; }
 	CCollision *Collision() { return &m_Collision; }
@@ -112,6 +117,9 @@ public:
 
 	class IGameController *m_pController;
 	CGameWorld m_World;
+	CCommandManager m_CommandManager;
+
+	CCommandManager *CommandManager() { return &m_CommandManager; }
 
 	// helper functions
 	class CCharacter *GetPlayerChar(int ClientID);
@@ -176,6 +184,10 @@ public:
 	void SendGameMsg(int GameMsgID, int ParaI1, int ClientID);
 	void SendGameMsg(int GameMsgID, int ParaI1, int ParaI2, int ParaI3, int ClientID);
 
+	void SendChatCommand(const CCommandManager::CCommand *pCommand, int ClientID);
+	void SendChatCommands(int ClientID);
+	void SendRemoveChatCommand(const CCommandManager::CCommand *pCommand, int ClientID);
+
 	//
 	bool IsPureTuning() const;
 	void CheckPureTuning();
@@ -204,6 +216,7 @@ public:
 	virtual void OnClientDirectInput(int ClientID, void *pInput);
 	virtual void OnClientPredictedInput(int ClientID, void *pInput);
 
+	virtual bool IsClientBot(int ClientID) const;
 	virtual bool IsClientReady(int ClientID) const;
 	virtual bool IsClientPlayer(int ClientID) const;
 	virtual bool IsClientSpectator(int ClientID) const;
