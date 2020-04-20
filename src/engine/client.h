@@ -95,6 +95,9 @@ public:
 	virtual void ToggleWindowBordered() = 0;
 	virtual void ToggleWindowVSync() = 0;
 
+	// Race
+	virtual unsigned GetMapCrc() const = 0;
+
 	// networking
 	virtual void EnterGame() = 0;
 

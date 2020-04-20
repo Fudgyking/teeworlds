@@ -4,6 +4,7 @@
 #define ENGINE_SHARED_GHOST_H
 
 #include <engine/shared/protocol.h>
+#include "huffman.h"
 
 struct CGhostHeader
 {
@@ -48,6 +49,8 @@ class CGhostRecorder
 	void ResetBuffer();
 	void FlushChunk();
 
+	CHuffman m_Huffman;
+
 public:
 	CGhostRecorder();
 
@@ -77,6 +80,8 @@ class CGhostLoader
 
 	void ResetBuffer();
 	int ReadChunk(int *pType);
+
+	CHuffman m_Huffman;
 
 public:
 	CGhostLoader();

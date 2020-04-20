@@ -54,6 +54,7 @@ public:
 
 	virtual void Init(int FlagMask);
 	virtual void Reset();
+	virtual void Reset(int FilterFlags);
 	virtual void RestoreStrings();
 	virtual void Save(const char *pFilename);
 	virtual CConfig *Values() { return &m_Values; }

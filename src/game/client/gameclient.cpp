@@ -1533,13 +1533,13 @@ void CGameClient::OnPredict()
 	}
 
 	int PhysicsFlags = 0;
-	if(g_Config.m_ClPredictRace) // TODO: only on race servers
+	if(m_pConfig->m_ClPredictRace) // TODO: only on race servers
 	{
-		if(g_Config.m_ClPredictTeleport)
+		if(m_pConfig->m_ClPredictTeleport)
 			PhysicsFlags |= PHYSICSFLAG_TELEPORT;
-		if(g_Config.m_ClPredictSpeedup)
+		if(m_pConfig->m_ClPredictSpeedup)
 			PhysicsFlags |= PHYSICSFLAG_SPEEDUP;
-		if(g_Config.m_ClPredictStopTiles)
+		if(m_pConfig->m_ClPredictStopTiles)
 			PhysicsFlags |= PHYSICSFLAG_STOPPER;
 	}
 

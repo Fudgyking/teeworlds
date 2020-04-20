@@ -800,8 +800,6 @@ private:
 
 	void SetMenuPage(int NewPage);
 
-	bool CheckHotKey(int Key);
-
 	struct CGhostFile
 	{
 		char m_aFilename[256];

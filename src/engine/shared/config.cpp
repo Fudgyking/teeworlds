@@ -63,6 +63,17 @@ void CConfigManager::Reset()
 	#undef MACRO_CONFIG_STR
 }
 
+void CConfigManager::Reset(int FilterFlags)
+{
+	#define MACRO_CONFIG_INT(Name,ScriptName,def,min,max,flags,desc) if((flags)&FilterFlags) m_Values.m_##Name = def;
+	#define MACRO_CONFIG_STR(Name,ScriptName,len,def,flags,desc) if((flags)&FilterFlags) str_copy(m_Values.m_##Name, def, len);
+
+	#include "config_variables.h"
+
+	#undef MACRO_CONFIG_INT
+	#undef MACRO_CONFIG_STR
+}
+
 void CConfigManager::RestoreStrings()
 {
 	#define MACRO_CONFIG_INT(Name,ScriptName,def,min,max,flags,desc)	// nop

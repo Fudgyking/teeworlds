@@ -23,6 +23,7 @@ void CGhostRecorder::Init(IConsole *pConsole, IStorage *pStorage)
 {
 	m_pStorage = pStorage;
 	m_pConsole = pConsole;
+	m_Huffman.Init();
 }
 
 // Record
@@ -119,7 +120,7 @@ void CGhostRecorder::FlushChunk()
 	if(Size < 0)
 		return;
 
-	Size = CNetBase::Compress(s_aBuffer, Size, s_aBuffer2, sizeof(s_aBuffer2));
+	Size = m_Huffman.Compress(s_aBuffer, Size, s_aBuffer2, sizeof(s_aBuffer2));
 	if(Size < 0)
 		return;
 
@@ -177,6 +178,7 @@ void CGhostLoader::Init(IConsole *pConsole, IStorage *pStorage)
 {
 	m_pStorage = pStorage;
 	m_pConsole = pConsole;
+	m_Huffman.Init();
 }
 
 void CGhostLoader::ResetBuffer()
@@ -260,7 +262,7 @@ int CGhostLoader::ReadChunk(int *pType)
 		return -1;
 	}
 
-	Size = CNetBase::Decompress(s_aCompresseddata, Size, s_aDecompressed, sizeof(s_aDecompressed));
+	Size = m_Huffman.Decompress(s_aCompresseddata, Size, s_aDecompressed, sizeof(s_aDecompressed));
 	if(Size < 0)
 	{
 		m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "ghost", "error during network decompression");

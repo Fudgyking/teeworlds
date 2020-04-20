@@ -84,7 +84,7 @@ void CGhost::AddInfos(const CNetObj_Character *pChar)
 	int NumTicks = m_CurGhost.m_Path.Size();
 
 	// do not start writing to file as long as we still touch the start line
-	if(g_Config.m_ClRaceSaveGhost && !m_GhostRecorder.IsRecording() && NumTicks > 0)
+	if(m_pConfig->m_ClRaceSaveGhost && !m_GhostRecorder.IsRecording() && NumTicks > 0)
 	{
 		GetPath(m_aTmpFilename, sizeof(m_aTmpFilename), m_CurGhost.m_aPlayer);
 		m_GhostRecorder.Start(m_aTmpFilename, Client()->GetCurrentMapName(), Client()->GetMapCrc(), m_CurGhost.m_aPlayer);
@@ -133,7 +133,7 @@ void CGhost::MirrorChar(CNetObj_Character *pChar, int Middle)
 
 void CGhost::OnNewSnapshot(bool Predicted)
 {
-	if(!(m_pClient->m_GameInfo.m_GameFlags&GAMEFLAG_RACE)|| !g_Config.m_ClRaceGhost || Client()->State() != IClient::STATE_ONLINE)
+	if(!(m_pClient->m_GameInfo.m_GameFlags&GAMEFLAG_RACE)|| !m_pConfig->m_ClRaceGhost || Client()->State() != IClient::STATE_ONLINE)
 		return;
 
 	if(!m_Loaded)
@@ -231,7 +231,7 @@ void CGhost::OnRender()
 
 		m_pClient->m_pPlayers->RenderHook(&Prev, &Player, &pGhost->m_RenderInfo, -2, IntraTick);
 		m_pClient->m_pPlayers->RenderPlayer(&Prev, &Player, 0, &pGhost->m_RenderInfo, -2, IntraTick);
-		if(g_Config.m_ClGhostNamePlates)
+		if(m_pConfig->m_ClGhostNamePlates)
 			RenderGhostNamePlate(&Prev, &Player, IntraTick, pGhost->m_aPlayer);
 	}
 }
@@ -239,11 +239,11 @@ void CGhost::OnRender()
 void CGhost::RenderGhostNamePlate(const CNetObj_Character *pPrev, const CNetObj_Character *pPlayer, float IntraTick, const char *pName)
 {
 	vec2 Pos = mix(vec2(pPrev->m_X, pPrev->m_Y), vec2(pPlayer->m_X, pPlayer->m_Y), IntraTick);
-	float FontSize = 18.0f + 20.0f * g_Config.m_ClNameplatesSize / 100.0f;
+	float FontSize = 18.0f + 20.0f * m_pConfig->m_ClNameplatesSize / 100.0f;
 
 	// render name plate
 	float a = 0.5f;
-	if(g_Config.m_ClGhostNameplatesAlways == 0)
+	if(m_pConfig->m_ClGhostNameplatesAlways == 0)
 		a = clamp(0.5f-powf(distance(m_pClient->m_pControls->m_TargetPos, Pos)/200.0f,16.0f), 0.0f, 0.5f);
 
 	float tw = TextRender()->TextWidth(0, FontSize, pName, -1, -1.0f);
@@ -563,6 +563,7 @@ void CGhost::OnInit()
 {
 	m_GhostLoader.Init(Console(), Storage());
 	m_GhostRecorder.Init(Console(), Storage());
+	m_pConfig = Kernel()->RequestInterface<IConfigManager>()->Values();
 }
 
 void CGhost::OnConsoleInit()
@@ -657,7 +658,7 @@ void CGhost::LoadGhosts()
 
 bool CGhost::AutoMirroring() const
 {
-	return g_Config.m_ClGhostAutoMirror && (m_SymmetricMap || g_Config.m_ClGhostForceMirror);
+	return m_pConfig->m_ClGhostAutoMirror && (m_SymmetricMap || m_pConfig->m_ClGhostForceMirror);
 }
 
 void CGhost::OnTeamJoin(int Team)

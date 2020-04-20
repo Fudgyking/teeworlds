@@ -67,6 +67,7 @@ private:
 		}
 	};
 
+	CConfig *m_pConfig;
 	CGhostLoader m_GhostLoader;
 	CGhostRecorder m_GhostRecorder;
 

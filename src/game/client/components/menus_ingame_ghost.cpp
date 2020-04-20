@@ -69,10 +69,10 @@ void CMenus::GhostlistUpdate()
 			str_copy(Entry.m_aFilename, m_lGhostFiles[i].m_aFilename, sizeof(Entry.m_aFilename));
 			str_copy(Entry.m_aPlayer, pHeader->m_aOwner, sizeof(Entry.m_aPlayer));
 			Entry.m_Time = Time;
-			Entry.m_AutoDelete = g_Config.m_ClDeleteOldGhosts;
+			Entry.m_AutoDelete = Config()->m_ClDeleteOldGhosts;
 			int Index = m_lGhosts.add_unsorted(Entry);
 
-			if(str_comp(Entry.m_aPlayer, g_Config.m_PlayerName) == 0 && (BestOwnGhostIndex == -1 || Entry < m_lGhosts[BestOwnGhostIndex]))
+			if(str_comp(Entry.m_aPlayer, Config()->m_PlayerName) == 0 && (BestOwnGhostIndex == -1 || Entry < m_lGhosts[BestOwnGhostIndex]))
 				BestOwnGhostIndex = Index;
 		}
 	}
@@ -173,7 +173,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 	CUIRect Label, Row, Footer;
 	MainView.HSplitBottom(80.0f, &MainView, 0);
 	MainView.HSplitTop(20.0f, 0, &MainView);
-	RenderTools()->DrawUIRect(&MainView, vec4(0.0f, 0.0f, 0.0f, g_Config.m_ClMenuAlpha/100.0f), CUI::CORNER_ALL, 5.0f);
+	RenderTools()->DrawUIRect(&MainView, vec4(0.0f, 0.0f, 0.0f, Config()->m_ClMenuAlpha/100.0f), CUI::CORNER_ALL, 5.0f);
 
 	MainView.HSplitTop(ButtonHeight, &Label, &MainView);
 	Label.y += 2.0f;
@@ -195,7 +195,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 	ScrollParams.m_ClipBgColor = vec4(0,0,0,0);
 	ScrollParams.m_ScrollbarBgColor = vec4(0,0,0,0);
 	ScrollParams.m_ScrollSpeed = 15;
-	if(s_ScrollRegion.m_ContentH > s_ScrollRegion.m_ClipRect.h) // scrollbar is shown
+	if(s_ScrollRegion.IsScrollbarShown()) // scrollbar is shown
 		Row.VSplitRight(ScrollParams.m_ScrollbarWidth, &Row, 0);
 
 	// headline
@@ -219,7 +219,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 
 	// scroll, ignore margins
 	MainView.Margin(-5.0f, &MainView);
-	BeginScrollRegion(&s_ScrollRegion, &MainView, &ScrollOffset, &ScrollParams);
+	s_ScrollRegion.Begin(&MainView, &ScrollOffset, &ScrollParams);
 	MainView.Margin(5.0f, &MainView);
 	MainView.y += ScrollOffset.y;
 
@@ -237,7 +237,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 		TextRender()->TextColor(Color.r, Color.g, Color.b, pEntry->HasFile() ? 1.0f : 0.5f);
 
 		MainView.HSplitTop(ButtonHeight, &Row, &MainView);
-		ScrollRegionAddRect(&s_ScrollRegion, Row);
+		s_ScrollRegion.AddRect(Row);
 
 		int Inside = UI()->MouseInside(&Row);
 
@@ -301,7 +301,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 
 	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-	EndScrollRegion(&s_ScrollRegion);
+	s_ScrollRegion.End();
 
 	Footer.VSplitLeft(120.0f, &Label, &Footer);
 
