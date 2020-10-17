@@ -1121,7 +1121,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 			for(int p = 0; p < NUM_SKINPARTS; p++)
 			{
-				str_copy(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], 24);
+				str_utf8_copy_num(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], sizeof(pPlayer->m_TeeInfos.m_aaSkinPartNames[p]), MAX_SKIN_LENGTH);
 				pPlayer->m_TeeInfos.m_aUseCustomColors[p] = pMsg->m_aUseCustomColors[p];
 				pPlayer->m_TeeInfos.m_aSkinPartColors[p] = pMsg->m_aSkinPartColors[p];
 			}
@@ -1160,7 +1160,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 			for(int p = 0; p < NUM_SKINPARTS; p++)
 			{
-				str_copy(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], 24);
+				str_utf8_copy_num(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], sizeof(pPlayer->m_TeeInfos.m_aaSkinPartNames[p]), MAX_SKIN_LENGTH);
 				pPlayer->m_TeeInfos.m_aUseCustomColors[p] = pMsg->m_aUseCustomColors[p];
 				pPlayer->m_TeeInfos.m_aSkinPartColors[p] = pMsg->m_aSkinPartColors[p];
 			}
@@ -1260,10 +1260,11 @@ void CGameContext::ConChangeMap(IConsole::IResult *pResult, void *pUserData)
 void CGameContext::ConRestart(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
-	if(pResult->NumArguments())
-		pSelf->m_pController->DoWarmup(clamp(pResult->GetInteger(0), -1, 1000));
+	int Seconds = pResult->NumArguments() ? clamp(pResult->GetInteger(0), -1, 1000) : 0;
+	if(Seconds < 0)
+		pSelf->m_pController->AbortWarmup();
 	else
-		pSelf->m_pController->DoWarmup(0);
+		pSelf->m_pController->DoWarmup(Seconds);
 }
 
 void CGameContext::ConSay(IConsole::IResult *pResult, void *pUserData)
@@ -1377,8 +1378,8 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 		return;
 	}
-	while(*pDescription == ' ')
-		pDescription++;
+
+	pDescription = str_skip_whitespaces_const(pDescription);
 	if(str_length(pDescription) >= VOTE_DESC_LENGTH || *pDescription == 0)
 	{
 		char aBuf[256];
@@ -1388,8 +1389,7 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 	}
 
 	// check for duplicate entry
-	CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst;
-	while(pOption)
+	for(CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst; pOption; pOption = pOption->m_pNext)
 	{
 		if(str_comp_nocase(pDescription, pOption->m_aDescription) == 0)
 		{
@@ -1398,14 +1398,13 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 			return;
 		}
-		pOption = pOption->m_pNext;
 	}
 
 	// add the option
 	++pSelf->m_NumVoteOptions;
 	int Len = str_length(pCommand);
 
-	pOption = (CVoteOptionServer *)pSelf->m_pVoteOptionHeap->Allocate(sizeof(CVoteOptionServer) + Len);
+	CVoteOptionServer *pOption = (CVoteOptionServer *)pSelf->m_pVoteOptionHeap->Allocate(sizeof(CVoteOptionServer) + Len);
 	pOption->m_pNext = 0;
 	pOption->m_pPrev = pSelf->m_pVoteOptionLast;
 	if(pOption->m_pPrev)
@@ -1565,7 +1564,7 @@ void CGameContext::OnConsoleInit()
 
 	Console()->Register("pause", "?i[seconds]", CFGFLAG_SERVER|CFGFLAG_STORE, ConPause, this, "Pause/unpause game");
 	Console()->Register("change_map", "?r[map]", CFGFLAG_SERVER|CFGFLAG_STORE, ConChangeMap, this, "Change map");
-	Console()->Register("restart", "?i[seconds]", CFGFLAG_SERVER|CFGFLAG_STORE, ConRestart, this, "Restart in x seconds (0 = abort)");
+	Console()->Register("restart", "?i[seconds]", CFGFLAG_SERVER|CFGFLAG_STORE, ConRestart, this, "Restart in x seconds (-1 = abort)");
 	Console()->Register("say", "r[text]", CFGFLAG_SERVER, ConSay, this, "Say in chat");
 	Console()->Register("broadcast", "r[text]", CFGFLAG_SERVER, ConBroadcast, this, "Broadcast message");
 	Console()->Register("set_team", "i[id] i[team] ?i[delay]", CFGFLAG_SERVER, ConSetTeam, this, "Set team of player to team");

@@ -194,7 +194,7 @@ void CMenus::RenderGhost(CUIRect MainView)
 	CScrollRegionParams ScrollParams;
 	ScrollParams.m_ClipBgColor = vec4(0,0,0,0);
 	ScrollParams.m_ScrollbarBgColor = vec4(0,0,0,0);
-	ScrollParams.m_ScrollSpeed = 15;
+	ScrollParams.m_ScrollUnit = 15;
 	if(s_ScrollRegion.IsScrollbarShown()) // scrollbar is shown
 		Row.VSplitRight(ScrollParams.m_ScrollbarWidth, &Row, 0);
 
@@ -278,7 +278,8 @@ void CMenus::RenderGhost(CUIRect MainView)
 		if(Inside)
 		{
 			Label.HMargin((Label.h - Label.w) / 2, &Label);
-			if(DoButton_SpriteClean(IMAGE_TOOLICONS, SPRITE_TOOL_X_A, &Label))
+			DoIcon(IMAGE_TOOLICONS, SPRITE_TOOL_X_A, &Label);
+			if(UI()->DoButtonLogic(&pEntry->m_ButtonSaveID, &Label))
 			{
 				if(pEntry->Active())
 					m_pClient->m_pGhost->Unload(pEntry->m_Slot);

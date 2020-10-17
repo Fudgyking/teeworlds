@@ -123,8 +123,8 @@ public:
 		CInput m_aInputs[200]; // TODO: handle input better
 		int m_CurrentInput;
 
-		char m_aName[MAX_NAME_LENGTH];
-		char m_aClan[MAX_CLAN_LENGTH];
+		char m_aName[MAX_NAME_LENGTH*UTF8_BYTE_LENGTH];
+		char m_aClan[MAX_CLAN_LENGTH*UTF8_BYTE_LENGTH];
 		int m_Version;
 		int m_Country;
 		int m_Score;
@@ -152,13 +152,11 @@ public:
 	IEngineMap *m_pMap;
 
 	int64 m_GameStartTime;
-	int m_RunServer;
-	int m_MapReload;
+	bool m_RunServer;
+	bool m_MapReload;
 	int m_RconClientID;
 	int m_RconAuthLevel;
 	int m_PrintCBIndex;
-
-	int64 m_Lastheartbeat;
 
 	// map
 	enum
@@ -253,6 +251,7 @@ public:
 
 	void PumpNetwork();
 
+	virtual void ChangeMap(const char *pMap);
 	const char *GetMapName();
 	int LoadMap(const char *pMapName);
 
@@ -277,6 +276,7 @@ public:
 	static void ConchainModCommandUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainConsoleOutputLevelUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainRconPasswordSet(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainMapUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	void RegisterCommands();
 

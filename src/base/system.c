@@ -9,13 +9,14 @@
 
 #include "system.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #if defined(CONF_FAMILY_UNIX)
 	#include <sys/time.h>
 	#include <unistd.h>
 
 	/* unix net includes */
-	#include <sys/stat.h>
-	#include <sys/types.h>
 	#include <sys/socket.h>
 	#include <sys/ioctl.h>
 	#include <errno.h>
@@ -761,9 +762,11 @@ static void sockaddr_to_netaddr(const struct sockaddr *src, NETADDR *dst)
 	}
 }
 
-int net_addr_comp(const NETADDR *a, const NETADDR *b)
+int net_addr_comp(const NETADDR *a, const NETADDR *b, int check_port)
 {
-	return mem_comp(a, b, sizeof(NETADDR));
+	if(a->type == b->type && mem_comp(a->ip, b->ip, a->type == NETTYPE_IPV4 ? NETADDR_SIZE_IPV4 : NETADDR_SIZE_IPV6) == 0 && (!check_port || a->port == b->port))
+		return 0;
+	return -1;
 }
 
 void net_addr_str(const NETADDR *addr, char *string, int max_length, int add_port)
@@ -1471,6 +1474,22 @@ int net_init()
 	return 0;
 }
 
+#if defined (CONF_FAMILY_WINDOWS)
+static inline time_t filetime_to_unixtime(LPFILETIME filetime)
+{
+	time_t t;
+	ULARGE_INTEGER li;
+	li.LowPart = filetime->dwLowDateTime;
+	li.HighPart = filetime->dwHighDateTime;
+
+	li.QuadPart /= 10000000; // 100ns to 1s
+	li.QuadPart -= 11644473600LL; // Windows epoch is in the past
+
+	t = li.QuadPart;
+	return t == li.QuadPart ? t : (time_t)-1;
+}
+#endif
+
 void fs_listdir(const char *dir, FS_LISTDIR_CALLBACK cb, int type, void *user)
 {
 #if defined(CONF_FAMILY_WINDOWS)
@@ -1515,6 +1534,74 @@ void fs_listdir(const char *dir, FS_LISTDIR_CALLBACK cb, int type, void *user)
 	{
 		str_copy(buffer+length, entry->d_name, (int)sizeof(buffer)-length);
 		if(cb(entry->d_name, fs_is_dir(buffer), type, user))
+			break;
+	}
+
+	/* close the directory and return */
+	closedir(d);
+	return;
+#endif
+}
+
+void fs_listdir_fileinfo(const char* dir, FS_LISTDIR_CALLBACK_FILEINFO cb, int type, void* user)
+{
+#if defined(CONF_FAMILY_WINDOWS)
+	WIN32_FIND_DATA finddata;
+	HANDLE handle;
+	char buffer[1024*2];
+	int length;
+	str_format(buffer, sizeof(buffer), "%s/*", dir);
+
+	handle = FindFirstFileA(buffer, &finddata);
+
+	if (handle == INVALID_HANDLE_VALUE)
+		return;
+
+	str_format(buffer, sizeof(buffer), "%s/", dir);
+	length = str_length(buffer);
+
+	/* add all the entries */
+	do
+	{
+		str_copy(buffer+length, finddata.cFileName, (int)sizeof(buffer)-length);
+
+		CFsFileInfo info;
+		info.m_pName = finddata.cFileName;
+		info.m_TimeCreated = filetime_to_unixtime(&finddata.ftCreationTime);
+		info.m_TimeModified = filetime_to_unixtime(&finddata.ftLastWriteTime);
+
+		if(cb(&info, fs_is_dir(buffer), type, user))
+			break;
+	}
+	while (FindNextFileA(handle, &finddata));
+
+	FindClose(handle);
+	return;
+#else
+	struct dirent *entry;
+	time_t created = -1, modified = -1;
+	char buffer[1024*2];
+	int length;
+	DIR *d = opendir(dir);
+
+	if(!d)
+		return;
+
+	str_format(buffer, sizeof(buffer), "%s/", dir);
+	length = str_length(buffer);
+
+	while((entry = readdir(d)) != NULL)
+	{
+		CFsFileInfo info;
+
+		str_copy(buffer+length, entry->d_name, (int)sizeof(buffer)-length);
+		fs_file_time(buffer, &created, &modified);
+
+		info.m_pName = entry->d_name;
+		info.m_TimeCreated = created;
+		info.m_TimeModified = modified;
+
+		if(cb(&info, fs_is_dir(buffer), type, user))
 			break;
 	}
 
@@ -1647,6 +1734,15 @@ int fs_is_dir(const char *path)
 #endif
 }
 
+time_t fs_getmtime(const char *path)
+{
+	struct stat sb;
+	if(stat(path, &sb) == -1)
+		return 0;
+
+	return sb.st_mtime;
+}
+
 int fs_chdir(const char *path)
 {
 	if(fs_is_dir(path))
@@ -1729,6 +1825,30 @@ char *fs_read_str(const char *name)
 	return result;
 }
 
+int fs_file_time(const char *name, time_t *created, time_t *modified)
+{
+#if defined(CONF_FAMILY_WINDOWS)
+	WIN32_FIND_DATA finddata;
+	HANDLE handle = FindFirstFile(name, &finddata);
+	if(handle == INVALID_HANDLE_VALUE)
+		return 1;
+
+	*created = filetime_to_unixtime(&finddata.ftCreationTime);
+	*modified = filetime_to_unixtime(&finddata.ftLastWriteTime);
+#elif defined(CONF_FAMILY_UNIX)
+	struct stat sb;
+	if(stat(name, &sb))
+		return 1;
+
+	*created = sb.st_ctime;
+	*modified = sb.st_mtime;
+#else
+	#error not implemented
+#endif
+
+	return 0;
+}
+
 void swap_endian(void *data, unsigned elem_size, unsigned num)
 {
 	char *src = (char*) data;
@@ -1803,6 +1923,36 @@ int time_houroftheday()
 	time(&time_data);
 	time_info = localtime(&time_data);
 	return time_info->tm_hour;
+}
+
+int time_season()
+{
+	time_t time_data;
+	struct tm *time_info;
+
+	time(&time_data);
+	time_info = localtime(&time_data);
+
+	switch(time_info->tm_mon)
+	{
+		case 11:
+		case 0:
+		case 1:
+			return SEASON_WINTER;
+		case 2:
+		case 3:
+		case 4:
+			return SEASON_SPRING;
+		case 5:
+		case 6:
+		case 7:
+			return SEASON_SUMMER;
+		case 8:
+		case 9:
+		case 10:
+			return SEASON_AUTUMN;
+	}
+	return SEASON_SPRING; // should never happen
 }
 
 int time_isxmasday()
@@ -2325,7 +2475,8 @@ int mem_comp(const void *a, const void *b, int size)
 int mem_has_null(const void *block, unsigned size)
 {
 	const unsigned char *bytes = block;
-	for(unsigned i = 0; i < size; i++)
+	unsigned i;        
+	for(i = 0; i < size; i++)
 	{
 		if(bytes[i] == 0)
 		{
@@ -2549,6 +2700,22 @@ int str_utf8_check(const char *str)
 	return 1;
 }
 
+void str_utf8_copy_num(char *dst, const char *src, int dst_size, int num)
+{
+	int new_cursor;
+	int cursor = 0;
+
+	while(src[cursor])
+	{
+		new_cursor = str_utf8_forward(src, cursor);
+		if(new_cursor >= dst_size)			// reserve 1 byte for the null termination
+			break;
+		else
+			cursor = new_cursor;
+	}
+
+	str_copy(dst, src, cursor < dst_size ? cursor+1 : dst_size);
+}
 
 unsigned str_quickhash(const char *str)
 {

@@ -275,7 +275,7 @@ CServer::CServer() : m_DemoRecorder(&m_SnapshotDelta)
 	m_pGameServer = 0;
 
 	m_CurrentGameTick = 0;
-	m_RunServer = 1;
+	m_RunServer = true;
 
 	m_pCurrentMapData = 0;
 	m_CurrentMapSize = 0;
@@ -285,7 +285,7 @@ CServer::CServer() : m_DemoRecorder(&m_SnapshotDelta)
 	m_pLastMapEntry = 0;
 	m_pMapListHeap = 0;
 
-	m_MapReload = 0;
+	m_MapReload = false;
 
 	m_RconClientID = IServer::RCON_CID_SERV;
 	m_RconAuthLevel = AUTHED_ADMIN;
@@ -304,7 +304,7 @@ void CServer::SetClientName(int ClientID, const char *pName)
 
 	const char *pDefaultName = "(1)";
 	pName = str_utf8_skip_whitespaces(pName);
-	str_copy(m_aClients[ClientID].m_aName, *pName ? pName : pDefaultName, MAX_NAME_LENGTH);
+	str_utf8_copy_num(m_aClients[ClientID].m_aName, *pName ? pName : pDefaultName, sizeof(m_aClients[ClientID].m_aName), MAX_NAME_LENGTH);
 }
 
 void CServer::SetClientClan(int ClientID, const char *pClan)
@@ -312,7 +312,7 @@ void CServer::SetClientClan(int ClientID, const char *pClan)
 	if(ClientID < 0 || ClientID >= MAX_CLIENTS || m_aClients[ClientID].m_State < CClient::STATE_READY || !pClan)
 		return;
 
-	str_copy(m_aClients[ClientID].m_aClan, pClan, MAX_CLAN_LENGTH);
+	str_utf8_copy_num(m_aClients[ClientID].m_aClan, pClan, sizeof(m_aClients[ClientID].m_aClan), MAX_CLAN_LENGTH);
 }
 
 void CServer::SetClientCountry(int ClientID, int Country)
@@ -1037,8 +1037,10 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 					if(m_aClients[ClientID].m_Version >= MIN_MAPLIST_CLIENTVERSION)
 						m_aClients[ClientID].m_pMapListEntryToSend = m_pFirstMapEntry;
 					SendRconLine(ClientID, "Admin authentication successful. Full remote console access granted.");
+					char aAddrStr[NETADDR_MAXSTRSIZE];
+					net_addr_str(m_NetServer.ClientAddr(ClientID), aAddrStr, sizeof(aAddrStr), true);
 					char aBuf[256];
-					str_format(aBuf, sizeof(aBuf), "ClientID=%d authed (admin)", ClientID);
+					str_format(aBuf, sizeof(aBuf), "ClientID=%d addr=%s authed (admin)", ClientID, aAddrStr);
 					Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 				}
 				else if(Config()->m_SvRconModPassword[0] && str_comp(pPw, Config()->m_SvRconModPassword) == 0)
@@ -1052,8 +1054,10 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 					const IConsole::CCommandInfo *pInfo = Console()->GetCommandInfo("sv_map", CFGFLAG_SERVER, false);
 					if(pInfo && pInfo->GetAccessLevel() == IConsole::ACCESS_LEVEL_MOD && m_aClients[ClientID].m_Version >= MIN_MAPLIST_CLIENTVERSION)
 						m_aClients[ClientID].m_pMapListEntryToSend = m_pFirstMapEntry;
+					char aAddrStr[NETADDR_MAXSTRSIZE];
+					net_addr_str(m_NetServer.ClientAddr(ClientID), aAddrStr, sizeof(aAddrStr), true);
 					char aBuf[256];
-					str_format(aBuf, sizeof(aBuf), "ClientID=%d authed (moderator)", ClientID);
+					str_format(aBuf, sizeof(aBuf), "ClientID=%d addr=%s authed (moderator)", ClientID, aAddrStr);
 					Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 				}
 				else if(Config()->m_SvRconMaxTries && m_ServerBan.IsBannable(m_NetServer.ClientAddr(ClientID)))
@@ -1161,8 +1165,8 @@ void CServer::GenerateServerInfo(CPacker *pPacker, int Token)
 		{
 			if(m_aClients[i].m_State != CClient::STATE_EMPTY)
 			{
-				pPacker->AddString(ClientName(i), MAX_NAME_LENGTH); // client name
-				pPacker->AddString(ClientClan(i), MAX_CLAN_LENGTH); // client clan
+				pPacker->AddString(ClientName(i), 0); // client name
+				pPacker->AddString(ClientClan(i), 0); // client clan
 				pPacker->AddInt(m_aClients[i].m_Country); // client country
 				pPacker->AddInt(m_aClients[i].m_Score); // client score
 				pPacker->AddInt(GameServer()->IsClientPlayer(i)?0:1); // flag spectator=1, bot=2 (player=0)
@@ -1242,6 +1246,12 @@ const char *CServer::GetMapName()
 			pMapShortName = &Config()->m_SvMap[i+1];
 	}
 	return pMapShortName;
+}
+
+void CServer::ChangeMap(const char *pMap)
+{
+	str_copy(Config()->m_SvMap, pMap, sizeof(Config()->m_SvMap));
+	m_MapReload = str_comp(Config()->m_SvMap, m_aCurrentMap) != 0;
 }
 
 int CServer::LoadMap(const char *pMapName)
@@ -1354,12 +1364,14 @@ int CServer::Run()
 	Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 
 	GameServer()->OnInit();
-	str_format(aBuf, sizeof(aBuf), "version %s", GameServer()->NetVersion());
+	str_format(aBuf, sizeof(aBuf), "netversion %s", GameServer()->NetVersion());
 	Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 	if(str_comp(GameServer()->NetVersionHashUsed(), GameServer()->NetVersionHashReal()))
 	{
 		m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", "WARNING: netversion hash differs");
 	}
+	str_format(aBuf, sizeof(aBuf), "game version %s", GameServer()->Version());
+	Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 
 	// process pending commands
 	m_pConsole->StoreCommands(false);
@@ -1373,21 +1385,14 @@ int CServer::Run()
 
 	// start game
 	{
-		int64 ReportTime = time_get();
-		int ReportInterval = 3;
-
-		m_Lastheartbeat = 0;
 		m_GameStartTime = time_get();
 
 		while(m_RunServer)
 		{
-			int64 t = time_get();
-			int NewTicks = 0;
-
-			// load new map TODO: don't poll this
-			if(str_comp(Config()->m_SvMap, m_aCurrentMap) != 0 || m_MapReload || m_CurrentGameTick >= 0x6FFFFFFF) //	force reload to make sure the ticks stay within a valid range
+			// load new map
+			if(m_MapReload || m_CurrentGameTick >= 0x6FFFFFFF) //	force reload to make sure the ticks stay within a valid range
 			{
-				m_MapReload = 0;
+				m_MapReload = false;
 
 				// load map
 				if(LoadMap(Config()->m_SvMap))
@@ -1422,10 +1427,15 @@ int CServer::Run()
 				}
 			}
 
-			while(t > TickStartTime(m_CurrentGameTick+1))
+			int64 Now = time_get();
+			bool NewTicks = false;
+			bool ShouldSnap = false;
+			while(Now > TickStartTime(m_CurrentGameTick+1))
 			{
 				m_CurrentGameTick++;
-				NewTicks++;
+				NewTicks = true;
+				if((m_CurrentGameTick%2) == 0)
+					ShouldSnap = true;
 
 				// apply new input
 				for(int c = 0; c < MAX_CLIENTS; c++)
@@ -1449,7 +1459,7 @@ int CServer::Run()
 			// snap game
 			if(NewTicks)
 			{
-				if(Config()->m_SvHighBandwidth || (m_CurrentGameTick%2) == 0)
+				if(Config()->m_SvHighBandwidth || ShouldSnap)
 					DoSnapshot();
 
 				UpdateClientRconCommands();
@@ -1461,33 +1471,8 @@ int CServer::Run()
 
 			PumpNetwork();
 
-			if(ReportTime < time_get())
-			{
-				if(Config()->m_Debug)
-				{
-					/*
-					static NETSTATS prev_stats;
-					NETSTATS stats;
-					netserver_stats(net, &stats);
-
-					perf_next();
-
-					if(config.dbg_pref)
-						perf_dump(&rootscope);
-
-					dbg_msg("server", "send=%8d recv=%8d",
-						(stats.send_bytes - prev_stats.send_bytes)/reportinterval,
-						(stats.recv_bytes - prev_stats.recv_bytes)/reportinterval);
-
-					prev_stats = stats;
-					*/
-				}
-
-				ReportTime += time_freq()*ReportInterval;
-			}
-
-			// wait for incomming data
-			m_NetServer.Wait(5);
+			// wait for incoming data
+			m_NetServer.Wait(clamp(int((TickStartTime(m_CurrentGameTick+1)-time_get())*1000/time_freq()), 1, 1000/SERVER_TICK_SPEED/2));
 		}
 	}
 	// disconnect all clients on shutdown
@@ -1595,7 +1580,7 @@ void CServer::ConStatus(IConsole::IResult *pResult, void *pUser)
 
 void CServer::ConShutdown(IConsole::IResult *pResult, void *pUser)
 {
-	((CServer *)pUser)->m_RunServer = 0;
+	((CServer *)pUser)->m_RunServer = false;
 }
 
 void CServer::DemoRecorder_HandleAutoStart()
@@ -1644,7 +1629,7 @@ void CServer::ConStopRecord(IConsole::IResult *pResult, void *pUser)
 
 void CServer::ConMapReload(IConsole::IResult *pResult, void *pUser)
 {
-	((CServer *)pUser)->m_MapReload = 1;
+	((CServer *)pUser)->m_MapReload = true;
 }
 
 void CServer::ConLogout(IConsole::IResult *pResult, void *pUser)
@@ -1757,6 +1742,16 @@ void CServer::ConchainRconPasswordSet(IConsole::IResult *pResult, void *pUserDat
 	}
 }
 
+void CServer::ConchainMapUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
+{
+	pfnCallback(pResult, pCallbackUserData);
+	if(pResult->NumArguments() >= 1)
+	{
+		CServer *pThis = static_cast<CServer *>(pUserData);
+		pThis->m_MapReload = str_comp(pThis->Config()->m_SvMap, pThis->m_aCurrentMap) != 0;
+	}
+}
+
 void CServer::RegisterCommands()
 {
 	// register console commands
@@ -1780,6 +1775,7 @@ void CServer::RegisterCommands()
 	Console()->Chain("mod_command", ConchainModCommandUpdate, this);
 	Console()->Chain("console_output_level", ConchainConsoleOutputLevelUpdate, this);
 	Console()->Chain("sv_rcon_password", ConchainRconPasswordSet, this);
+	Console()->Chain("sv_map", ConchainMapUpdate, this);
 
 	// register console commands in sub parts
 	m_ServerBan.InitServerBan(Console(), Storage(), this);

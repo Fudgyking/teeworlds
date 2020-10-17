@@ -312,6 +312,22 @@ public:
 		}
 	}
 
+	virtual void ListDirectoryFileInfo(int Type, const char *pPath, FS_LISTDIR_CALLBACK_FILEINFO pfnCallback, void *pUser)
+	{
+		char aBuffer[IO_MAX_PATH_LENGTH];
+		if(Type == TYPE_ALL)
+		{
+			// list all available directories
+			for(int i = 0; i < m_NumPaths; ++i)
+				fs_listdir_fileinfo(GetPath(i, pPath, aBuffer, sizeof(aBuffer)), pfnCallback, i, pUser);
+		}
+		else if(Type >= 0 && Type < m_NumPaths)
+		{
+			// list wanted directory
+			fs_listdir_fileinfo(GetPath(Type, pPath, aBuffer, sizeof(aBuffer)), pfnCallback, Type, pUser);
+		}
+	}
+
 	const char *GetPath(int Type, const char *pDir, char *pBuffer, unsigned BufferSize)
 	{
 		str_format(pBuffer, BufferSize, "%s%s%s", m_aaStoragePaths[Type], !m_aaStoragePaths[Type][0] ? "" : "/", pDir);
@@ -587,6 +603,14 @@ public:
 		*pCrc = Crc;
 		*pSize = Size;
 		return true;
+	}
+
+	virtual bool GetFileTime(const char *pFilename, int StorageType, time_t *pCreated, time_t *pModified)
+	{
+		char aBuf[IO_MAX_PATH_LENGTH];
+		GetCompletePath(StorageType, pFilename, aBuf, sizeof(aBuf));
+
+		return !fs_file_time(aBuf, pCreated, pModified);
 	}
 
 	static IStorage *Create(const char *pApplicationName, int StorageType, int NumArgs, const char **ppArguments)

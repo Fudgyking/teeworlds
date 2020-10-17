@@ -75,15 +75,18 @@ void CChat::OnReset()
 	m_CurrentLineWidth = -1.0f;
 
 	// init chat commands (must be in alphabetical order)
-	m_CommandManager.ClearCommands();
-	m_CommandManager.AddCommand("all", "Switch to all chat", "?r[message]", &Com_All, this);
-	m_CommandManager.AddCommand("friend", "Add player as friend", "s[name]", &Com_Befriend, this);
-	m_CommandManager.AddCommand("m", "Mute a player", "s[name]", &Com_Mute, this);
-	m_CommandManager.AddCommand("mute", "Mute a player", "s[name]", &Com_Mute, this);
-	m_CommandManager.AddCommand("r", "Reply to a whisper", "?r[message]", &Com_Reply, this);
-	m_CommandManager.AddCommand("team", "Switch to team chat", "?r[message]", &Com_Team, this);
-	m_CommandManager.AddCommand("w", "Whisper another player", "s[name]", &Com_Whisper, this);
-	m_CommandManager.AddCommand("whisper", "Whisper another player", "s[name]", &Com_Whisper, this);
+	if(Client()->State() < IClient::STATE_ONLINE)
+	{
+		m_CommandManager.ClearCommands();
+		m_CommandManager.AddCommand("all", "Switch to all chat", "?r[message]", &Com_All, this);
+		m_CommandManager.AddCommand("friend", "Add player as friend", "s[name]", &Com_Befriend, this);
+		m_CommandManager.AddCommand("m", "Mute a player", "s[name]", &Com_Mute, this);
+		m_CommandManager.AddCommand("mute", "Mute a player", "s[name]", &Com_Mute, this);
+		m_CommandManager.AddCommand("r", "Reply to a whisper", "?r[message]", &Com_Reply, this);
+		m_CommandManager.AddCommand("team", "Switch to team chat", "?r[message]", &Com_Team, this);
+		m_CommandManager.AddCommand("w", "Whisper another player", "r[name]", &Com_Whisper, this);
+		m_CommandManager.AddCommand("whisper", "Whisper another player", "r[name]", &Com_Whisper, this);
+	}
 }
 
 void CChat::OnMapLoad()
@@ -251,6 +254,7 @@ bool CChat::OnInput(IInput::CEvent Event)
 		}
 		else
 		{
+			m_pHistoryEntry = 0x0;
 			m_Mode = CHAT_NONE;
 			m_pClient->OnRelease();
 		}
@@ -427,7 +431,7 @@ bool CChat::OnInput(IInput::CEvent Event)
 
 	if(Event.m_Flags&IInput::FLAG_PRESS && Event.m_Key == KEY_UP)
 	{
-		if(IsTypingCommand())
+		if(IsTypingCommand() && !m_pHistoryEntry)
 		{
 			PreviousActiveCommand(&m_SelectedCommand);
 			if(m_SelectedCommand < 0)
@@ -451,7 +455,7 @@ bool CChat::OnInput(IInput::CEvent Event)
 	}
 	else if (Event.m_Flags&IInput::FLAG_PRESS && Event.m_Key == KEY_DOWN)
 	{
-		if(IsTypingCommand())
+		if(IsTypingCommand() && !m_pHistoryEntry)
 		{
 			NextActiveCommand(&m_SelectedCommand);
 			if(m_SelectedCommand >= m_CommandManager.CommandCount())
@@ -530,6 +534,7 @@ void CChat::ServerCommandCallback(IConsole::IResult *pResult, void *pContext)
 	Msg.m_Arguments = pComContext->m_pArgs;
 	pChatData->Client()->SendPackMsg(&Msg, MSGFLAG_VITAL);
 
+	pChatData->m_pHistoryEntry = 0x0;
 	pChatData->m_Mode = CHAT_NONE;
 	pChatData->m_pClient->OnRelease();
 }
@@ -549,7 +554,7 @@ void CChat::OnMessage(int MsgType, void *pRawMsg)
 		if(!m_CommandManager.AddCommand(pMsg->m_Name, pMsg->m_HelpText, pMsg->m_ArgsFormat, ServerCommandCallback, this))
 			dbg_msg("chat_commands", "adding server chat command: name='%s' args='%s' help='%s'", pMsg->m_Name, pMsg->m_ArgsFormat, pMsg->m_HelpText);
 		else
-			dbg_msg("chat-commands", "failed to add command '%s'", pMsg->m_Name);
+			dbg_msg("chat_commands", "failed to add command '%s'", pMsg->m_Name);
 
 	}
 	else if(MsgType == NETMSGTYPE_SV_COMMANDINFOREMOVE)
@@ -706,29 +711,32 @@ void CChat::AddLine(const char *pLine, int ClientID, int Mode, int TargetID)
 		m_LastWhisperFrom = ClientID; // we received a a whisper
 
 	// play sound
-	int64 Now = time_get();
-	if(ClientID < 0)
+	if(Config()->m_ClShowChat)
 	{
-		if(Now-m_aLastSoundPlayed[CHAT_SERVER] >= time_freq()*3/10)
+		int64 Now = time_get();
+		if(ClientID < 0)
 		{
-			m_pClient->m_pSounds->Play(CSounds::CHN_GUI, SOUND_CHAT_SERVER, 0);
-			m_aLastSoundPlayed[CHAT_SERVER] = Now;
+			if(Now-m_aLastSoundPlayed[CHAT_SERVER] >= time_freq()*3/10)
+			{
+				m_pClient->m_pSounds->Play(CSounds::CHN_GUI, SOUND_CHAT_SERVER, 0);
+				m_aLastSoundPlayed[CHAT_SERVER] = Now;
+			}
 		}
-	}
-	else if(Highlighted || Mode == CHAT_WHISPER)
-	{
-		if(Now-m_aLastSoundPlayed[CHAT_HIGHLIGHT] >= time_freq()*3/10)
+		else if(Highlighted || Mode == CHAT_WHISPER)
 		{
-			m_pClient->m_pSounds->Play(CSounds::CHN_GUI, SOUND_CHAT_HIGHLIGHT, 0);
-			m_aLastSoundPlayed[CHAT_HIGHLIGHT] = Now;
+			if(Now-m_aLastSoundPlayed[CHAT_HIGHLIGHT] >= time_freq()*3/10)
+			{
+				m_pClient->m_pSounds->Play(CSounds::CHN_GUI, SOUND_CHAT_HIGHLIGHT, 0);
+				m_aLastSoundPlayed[CHAT_HIGHLIGHT] = Now;
+			}
 		}
-	}
-	else
-	{
-		if(Now-m_aLastSoundPlayed[CHAT_CLIENT] >= time_freq()*3/10)
+		else
 		{
-			m_pClient->m_pSounds->Play(CSounds::CHN_GUI, SOUND_CHAT_CLIENT, 0);
-			m_aLastSoundPlayed[CHAT_CLIENT] = Now;
+			if(Now-m_aLastSoundPlayed[CHAT_CLIENT] >= time_freq()*3/10)
+			{
+				m_pClient->m_pSounds->Play(CSounds::CHN_GUI, SOUND_CHAT_CLIENT, 0);
+				m_aLastSoundPlayed[CHAT_CLIENT] = Now;
+			}
 		}
 	}
 }
@@ -747,6 +755,8 @@ const char* CChat::GetCommandName(int Mode) const
 void CChat::OnRender()
 {
 	if(Client()->State() < IClient::STATE_ONLINE)
+		return;
+	if(!Config()->m_ClShowChat)
 		return;
 
 	// send pending chat messages
@@ -976,7 +986,7 @@ void CChat::OnRender()
 				const CCommandManager::CCommand *pCommand = m_CommandManager.GetCommand(m_SelectedCommand);
 				if(str_length(pCommand->m_aName)+1 > str_length(m_Input.GetString()))
 				{
-					TextRender()->TextColor(1.0f, 1.0f, 1.0f, 0.5f);
+					TextRender()->TextColor(CUI::ms_TransparentTextColor);
 					TextRender()->TextEx(&Cursor, pCommand->m_aName + str_length(m_Input.GetString())-1, -1);
 				}
 			}
@@ -987,10 +997,8 @@ void CChat::OnRender()
 				CTextCursor InfoCursor;
 				TextRender()->SetCursor(&InfoCursor, 2.0f, y+12.0f, CategoryFontSize*0.75, TEXTFLAG_RENDER);
 
-				char aInfoText[128];
-				str_format(aInfoText, sizeof(aInfoText), Localize("Press Tab to cycle chat recipients. Whispers aren't encrypted and might be logged by the server."));
-				TextRender()->TextColor(1.0f, 1.0f, 1.0f, 0.5f);
-				TextRender()->TextEx(&InfoCursor, aInfoText, -1);
+				TextRender()->TextColor(CUI::ms_TransparentTextColor);
+				TextRender()->TextEx(&InfoCursor, Localize("Press Tab to cycle chat recipients. Whispers aren't encrypted and might be logged by the server."), -1);
 			}
 		}
 	}
@@ -1309,8 +1317,8 @@ void CChat::OnRender()
 			TextRender()->TextShadowed(&Cursor, pLine->m_aText, -1, ShadowOffset, ShadowColor, TextColor);
 	}
 
-	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
-	TextRender()->TextOutlineColor(0.0f, 0.0f, 0.0f, 0.3f);
+	TextRender()->TextColor(CUI::ms_DefaultTextColor);
+	TextRender()->TextOutlineColor(CUI::ms_DefaultTextOutlineColor);
 
 	HandleCommands(x+CategoryWidth, Height - 24.f, 200.0f-CategoryWidth);
 }

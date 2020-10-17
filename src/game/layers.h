@@ -20,6 +20,8 @@ class CLayers
 	CMapItemLayerTilemap *m_pSpeedupForceLayer;
 	CMapItemLayerTilemap *m_pSpeedupAngleLayer;
 	class IMap *m_pMap;
+
+	void InitGameLayer();
 	void InitTilemapSkip();
 
 public:
