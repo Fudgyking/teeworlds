@@ -309,7 +309,7 @@ int CMenus::DemolistFetchCallback(const char *pName, int IsDir, int StorageType,
 void CMenus::DemolistPopulate()
 {
 	m_lDemos.clear();
-	if(!str_comp(m_aCurrentDemoFolder, "demos"))
+	if(!str_comp(m_aCurrentDemoFolder, "demos07"))
 		m_DemolistStorageType = IStorage::TYPE_ALL;
 	Storage()->ListDirectory(m_DemolistStorageType, m_aCurrentDemoFolder, DemolistFetchCallback, this);
 	m_lDemos.sort_range();

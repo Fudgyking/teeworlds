@@ -93,7 +93,7 @@ CMenus::CMenus()
 	m_CursorActive = false;
 	m_PrevCursorActive = false;
 
-	str_copy(m_aCurrentDemoFolder, "demos", sizeof(m_aCurrentDemoFolder));
+	str_copy(m_aCurrentDemoFolder, "demos07", sizeof(m_aCurrentDemoFolder));
 	m_aCallvoteReason[0] = 0;
 	m_aFilterString[0] = 0;
 

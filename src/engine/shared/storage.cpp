@@ -77,8 +77,8 @@ public:
 					fs_makedir(GetPath(TYPE_SAVE, "records", aPath, sizeof(aPath)));
 				}
 				fs_makedir(GetPath(TYPE_SAVE, "dumps", aPath, sizeof(aPath)));
-				fs_makedir(GetPath(TYPE_SAVE, "demos", aPath, sizeof(aPath)));
-				fs_makedir(GetPath(TYPE_SAVE, "demos/auto", aPath, sizeof(aPath)));
+				fs_makedir(GetPath(TYPE_SAVE, "demos07", aPath, sizeof(aPath)));
+				fs_makedir(GetPath(TYPE_SAVE, "demos07/auto", aPath, sizeof(aPath)));
 				fs_makedir(GetPath(TYPE_SAVE, "configs", aPath, sizeof(aPath)));
 				fs_makedir(GetPath(TYPE_SAVE, "ghosts", aPath, sizeof(aPath)));
 			}

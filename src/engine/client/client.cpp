@@ -2342,10 +2342,10 @@ void CClient::DemoRecorder_Start(const char *pFilename, bool WithTimestamp)
 		{
 			char aDate[20];
 			str_timestamp(aDate, sizeof(aDate));
-			str_format(aFilename, sizeof(aFilename), "demos/%s_%s.demo", pFilename, aDate);
+			str_format(aFilename, sizeof(aFilename), "demos07/%s_%s.demo", pFilename, aDate);
 		}
 		else
-			str_format(aFilename, sizeof(aFilename), "demos/%s.demo", pFilename);
+			str_format(aFilename, sizeof(aFilename), "demos07/%s.demo", pFilename);
 		m_DemoRecorder.Start(Storage(), m_pConsole, aFilename, GameClient()->NetVersion(), m_aCurrentMap, m_CurrentMapSha256, m_CurrentMapCrc, "client");
 	}
 }
@@ -2360,7 +2360,7 @@ void CClient::DemoRecorder_HandleAutoStart()
 		{
 			// clean up auto recorded demos
 			CFileCollection AutoDemos;
-			AutoDemos.Init(Storage(), "demos/auto", "autorecord", ".demo", Config()->m_ClAutoDemoMax);
+			AutoDemos.Init(Storage(), "demos07/auto", "autorecord", ".demo", Config()->m_ClAutoDemoMax);
 		}
 	}
 }
